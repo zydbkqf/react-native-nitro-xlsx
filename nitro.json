@@ -1,0 +1,19 @@
+{
+  "cxxNamespace": ["xlsx"],
+  "ios": {
+    "iosModuleName": "NitroXlsx"
+  },
+  "android": {
+    "androidNamespace": ["xlsx"],
+    "androidCxxLibName": "NitroXlsx"
+  },
+  "autolinking": {
+    "NitroXlsx": {
+      "all": {
+        "language": "c++",
+        "implementationClassName": "HybridNitroXlsx"
+      }
+    }
+  },
+  "ignorePaths": ["node_modules", "lib"]
+}
