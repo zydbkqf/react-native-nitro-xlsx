@@ -3,30 +3,29 @@ import type { NitroXlsx as NitroXlsxSpec } from './specs/NitroXlsx.nitro'
 
 export const NitroXlsx = NitroModules.createHybridObject<NitroXlsxSpec>('NitroXlsx')
 
-export type { XlsxWorkbook, XlsxWorksheet, XlsxFormat } from './specs/NitroXlsx.nitro'
+export type { XlsxWorkbook, XlsxWorksheet, XlsxCellFormat } from './specs/NitroXlsx.nitro'
 
-// Cell alignment
+// Cell alignment (based on OpenXLSX XLAlignmentStyle)
 export const Align = {
-  NONE: 0,
+  GENERAL: 0,
   LEFT: 1,
-  CENTER: 2,
-  RIGHT: 3,
-  FILL: 4,
-  JUSTIFY: 5,
-  CENTER_ACROSS: 6,
-  DISTRIBUTED: 7,
+  RIGHT: 2,
+  CENTER: 3,
+  FILL: 6,
+  JUSTIFY: 7,
+  CENTER_CONTINUOUS: 8,
+  DISTRIBUTED: 9,
 } as const
 
 export const VAlign = {
-  NONE: 0,
-  TOP: 1,
-  CENTER: 2,
-  BOTTOM: 3,
-  JUSTIFY: 4,
-  DISTRIBUTED: 5,
+  TOP: 4,
+  CENTER: 3,
+  BOTTOM: 5,
+  JUSTIFY: 7,
+  DISTRIBUTED: 9,
 } as const
 
-// Border styles
+// Border styles (based on OpenXLSX XLLineStyle)
 export const Border = {
   NONE: 0,
   THIN: 1,
@@ -44,23 +43,21 @@ export const Border = {
   SLANT_DASH_DOT: 13,
 } as const
 
-// Underline styles
+// Underline styles (based on OpenXLSX XLUnderlineStyle)
 export const Underline = {
   NONE: 0,
   SINGLE: 1,
   DOUBLE: 2,
-  SINGLE_ACCOUNTING: 0x21,
-  DOUBLE_ACCOUNTING: 0x22,
 } as const
 
-// Script styles (superscript/subscript)
+// Script styles (based on OpenXLSX XLVerticalAlignRunStyle)
 export const Script = {
-  NONE: 0,
-  SUPERSCRIPT: 1,
-  SUBSCRIPT: 2,
+  BASELINE: 0,
+  SUBSCRIPT: 1,
+  SUPERSCRIPT: 2,
 } as const
 
-// Pattern fill styles
+// Pattern fill styles (based on OpenXLSX XLPatternType)
 export const Pattern = {
   NONE: 0,
   SOLID: 1,

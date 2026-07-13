@@ -1,19 +1,21 @@
 #pragma once
 
-#include "HybridXlsxFormatSpec.hpp"
+#include "HybridXlsxCellFormatSpec.hpp"
 #include <OpenXLSX/XLDocument.hpp>
+#include <OpenXLSX/XLSheet.hpp>
 #include <OpenXLSX/XLStyles.hpp>
 #include <string>
 #include <memory>
 
 namespace margelo::nitro::xlsx {
 
-class HybridXlsxFormat : public HybridXlsxFormatSpec {
+class HybridXlsxCellFormat : public HybridXlsxCellFormatSpec {
 public:
-  HybridXlsxFormat();
-  ~HybridXlsxFormat() override;
+  HybridXlsxCellFormat();
+  ~HybridXlsxCellFormat() override;
 
-  void applyToCell(OpenXLSX::XLCell& cell);
+  OpenXLSX::XLStyleIndex applyToDocument(OpenXLSX::XLStyles& styles);
+  void applyToCell(OpenXLSX::XLCell& cell, OpenXLSX::XLStyleIndex styleIndex);
 
   void setFontName(const std::string& name) override;
   void setFontSize(double size) override;
@@ -56,6 +58,14 @@ public:
   
   void setHyperlink() override;
   void setFontOnly() override;
+
+  std::string getFontName() override;
+  double getFontSize() override;
+  double getFontColor() override;
+  bool getIsBold() override;
+  bool getIsItalic() override;
+  std::string getNumFormat() override;
+  double getBgColor() override;
 
 private:
   std::string _fontName;

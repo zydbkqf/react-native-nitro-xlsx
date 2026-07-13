@@ -13,14 +13,19 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-// Forward declaration of `HybridXlsxFormatSpec` to properly resolve imports.
-namespace margelo::nitro::xlsx { class HybridXlsxFormatSpec; }
+// Forward declaration of `HybridXlsxCellFormatSpec` to properly resolve imports.
+namespace margelo::nitro::xlsx { class HybridXlsxCellFormatSpec; }
+// Forward declaration of `CellType` to properly resolve imports.
+namespace margelo::nitro::xlsx { enum class CellType; }
 
 #include <string>
 #include <memory>
-#include "HybridXlsxFormatSpec.hpp"
+#include "HybridXlsxCellFormatSpec.hpp"
 #include <optional>
 #include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/Null.hpp>
+#include <variant>
+#include "CellType.hpp"
 
 namespace margelo::nitro::xlsx {
 
@@ -53,21 +58,21 @@ namespace margelo::nitro::xlsx {
 
     public:
       // Methods
-      virtual void writeString(double row, double col, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeNumber(double row, double col, double value, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeBoolean(double row, double col, bool value, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeBlank(double row, double col, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeFormula(double row, double col, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeFormulaNum(double row, double col, const std::string& formula, double number, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeFormulaString(double row, double col, const std::string& formula, const std::string& str, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeFormulaBoolean(double row, double col, const std::string& formula, bool boolVal, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeArrayFormula(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeDatetime(double row, double col, double datetime, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void writeURL(double row, double col, const std::string& url, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void setColumn(double firstCol, double lastCol, double width, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void setRow(double row, double height, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void mergeRange(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
-      virtual void mergeRangeNum(double firstRow, double firstCol, double lastRow, double lastCol, double value, const std::optional<std::shared_ptr<HybridXlsxFormatSpec>>& format) = 0;
+      virtual void writeString(double row, double col, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeNumber(double row, double col, double value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeBoolean(double row, double col, bool value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeBlank(double row, double col, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeFormula(double row, double col, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeFormulaNum(double row, double col, const std::string& formula, double number, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeFormulaString(double row, double col, const std::string& formula, const std::string& str, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeFormulaBoolean(double row, double col, const std::string& formula, bool boolVal, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeArrayFormula(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeDatetime(double row, double col, double datetime, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void writeURL(double row, double col, const std::string& url, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void setColumn(double firstCol, double lastCol, double width, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void setRow(double row, double height, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void mergeRange(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual void mergeRangeNum(double firstRow, double firstCol, double lastRow, double lastCol, double value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
       virtual void insertImage(double row, double col, const std::string& path, std::optional<double> xOffset, std::optional<double> yOffset, std::optional<double> xScale, std::optional<double> yScale) = 0;
       virtual void insertImageBuffer(double row, double col, const std::shared_ptr<ArrayBuffer>& buffer, const std::string& extension, std::optional<double> xOffset, std::optional<double> yOffset, std::optional<double> xScale, std::optional<double> yScale) = 0;
       virtual void autofilter(double firstRow, double firstCol, double lastRow, double lastCol) = 0;
@@ -92,6 +97,16 @@ namespace margelo::nitro::xlsx {
       virtual void setOutline(double level) = 0;
       virtual void setColumnHidden(double firstCol, double lastCol, bool hidden) = 0;
       virtual void setRowHidden(double row, bool hidden) = 0;
+      virtual std::variant<bool, nitro::NullType, std::string, double> getCellValue(double row, double col) = 0;
+      virtual std::string getCellString(double row, double col) = 0;
+      virtual std::string getCellRawValue(double row, double col) = 0;
+      virtual CellType getCellType(double row, double col) = 0;
+      virtual std::shared_ptr<HybridXlsxCellFormatSpec> getCellFormat(double row, double col) = 0;
+      virtual double getRowCount() = 0;
+      virtual double getColumnCount() = 0;
+      virtual double getLastRow() = 0;
+      virtual double getLastColumn() = 0;
+      virtual std::string getName() = 0;
 
     protected:
       // Hybrid Setup

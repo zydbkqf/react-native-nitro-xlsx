@@ -15,6 +15,8 @@ namespace margelo::nitro::xlsx {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("createWorkbook", &HybridNitroXlsxSpec::createWorkbook);
+      prototype.registerHybridMethod("openWorkbook", &HybridNitroXlsxSpec::openWorkbook);
+      prototype.registerHybridMethod("openWorkbookFromBuffer", &HybridNitroXlsxSpec::openWorkbookFromBuffer);
     });
   }
 

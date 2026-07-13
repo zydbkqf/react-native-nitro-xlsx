@@ -1,10 +1,11 @@
 # react-native-nitro-xlsx
 
-A React Native module for creating Excel XLSX files using [libxlsxwriter](https://github.com/jmcnamara/libxlsxwriter) via [react-native-nitro-modules](https://github.com/mrousavy/nitro).
+A React Native module for reading and writing Excel XLSX files using [OpenXLSX](https://github.com/troldal/OpenXLSX) via [react-native-nitro-modules](https://github.com/mrousavy/nitro).
 
 ## Features
 
 - 📊 Full Excel XLSX file creation support
+- 📖 Read existing XLSX files (from file path or buffer)
 - 📝 Formula support (with default values)
 - 📅 Date/DateTime support
 - 🖼️ Image insertion (from file path or buffer)
@@ -33,6 +34,8 @@ No additional setup needed.
 
 ## Usage
 
+### Creating a Workbook
+
 ```typescript
 import { NitroXlsx, Align, Colors, NumFormat } from 'react-native-nitro-xlsx';
 
@@ -42,8 +45,8 @@ const workbook = NitroXlsx.createWorkbook();
 // Add a worksheet
 const sheet = workbook.addWorksheet('Sheet1');
 
-// Create a format for headers
-const headerFormat = workbook.addFormat();
+// Create a cell format for headers
+const headerFormat = workbook.addCellFormat();
 headerFormat.setBold();
 headerFormat.setFontColor(Colors.WHITE);
 headerFormat.setFgColor(Colors.BLUE);
@@ -80,16 +83,59 @@ const buffer = await workbook.getBuffer();
 // Example: Share.open({ url: 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa(buffer) });
 ```
 
+### Reading a Workbook
+
+```typescript
+import { NitroXlsx } from 'react-native-nitro-xlsx';
+
+// Open workbook from file path
+const workbook = NitroXlsx.openWorkbook('/path/to/file.xlsx');
+
+// Or open from buffer
+// const workbook = NitroXlsx.openWorkbookFromBuffer(arrayBuffer);
+
+// Get worksheet
+const sheet = workbook.getWorksheet(0);
+const sheetByName = workbook.getWorksheetByName('Sheet1');
+
+// Get worksheet info
+const name = sheet.getName();
+const lastRow = sheet.getLastRow();
+const lastCol = sheet.getLastColumn();
+
+// Read cell values
+for (let row = 0; row <= lastRow; row++) {
+  for (let col = 0; col <= lastCol; col++) {
+    const value = sheet.getCellValue(row, col);
+    const type = sheet.getCellType(row, col);
+    const strValue = sheet.getCellString(row, col);
+    console.log(`Cell [${row},${col}]: ${value} (type: ${type})`);
+  }
+}
+
+// Read cell format
+const format = sheet.getCellFormat(0, 0);
+const isBold = format.getIsBold();
+const fontName = format.getFontName();
+const fontSize = format.getFontSize();
+```
+
 ## API
 
 ### NitroXlsx
 
 - `createWorkbook(): XlsxWorkbook` - Create a new workbook
+- `openWorkbook(path: string): XlsxWorkbook` - Open workbook from file path
+- `openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook` - Open workbook from buffer
 
 ### XlsxWorkbook
 
 - `addWorksheet(name?: string): XlsxWorksheet` - Add a new worksheet
-- `addFormat(): XlsxFormat` - Add a new format
+- `getWorksheet(index: number): XlsxWorksheet` - Get worksheet by index
+- `getWorksheetByName(name: string): XlsxWorksheet` - Get worksheet by name
+- `getOrAddWorksheet(name: string): XlsxWorksheet` - Get or add worksheet
+- `getWorksheetCount(): number` - Get number of worksheets
+- `addCellFormat(): XlsxCellFormat` - Add a new cell format
 - `getBuffer(): Promise<ArrayBuffer>` - Generate and return the XLSX file as a buffer
 
 ### XlsxWorksheet
@@ -163,7 +209,23 @@ const buffer = await workbook.getBuffer();
 | `centerHorizontally()` | Center horizontally |
 | `centerVertically()` | Center vertically |
 
-### XlsxFormat
+#### Read Methods
+| Method | Description |
+|--------|-------------|
+| `getCellValue(row, col)` | Get cell value (string \| number \| boolean \| null) |
+| `getCellString(row, col)` | Get cell value as string |
+| `getCellRawValue(row, col)` | Get raw cell value |
+| `getCellType(row, col)` | Get cell type |
+| `getCellFormat(row, col)` | Get cell format |
+| `getRowCount()` | Get total row count |
+| `getColumnCount()` | Get total column count |
+| `getLastRow()` | Get last row index |
+| `getLastColumn()` | Get last column index |
+| `getName()` | Get worksheet name |
+
+### XlsxCellFormat
+
+The `XlsxCellFormat` interface is based on OpenXLSX's `XLCellFormat` class and provides rich cell formatting capabilities.
 
 #### Font
 - `setFontName(name)`, `setFontSize(size)`, `setFontColor(color)`
@@ -194,6 +256,28 @@ const buffer = await workbook.getBuffer();
 #### Other
 - `setHyperlink()`, `setFontOnly()`
 
+#### Read Properties
+- `getFontName()` - Get font name
+- `getFontSize()` - Get font size
+- `getFontColor()` - Get font color
+- `getIsBold()` - Check if bold
+- `getIsItalic()` - Check if italic
+- `getNumFormat()` - Get number format
+- `getBgColor()` - Get background color
+
+## Cell Types
+
+When reading cells, the following types are returned:
+
+- `empty` - Empty cell
+- `string` - Text string
+- `number` - Numeric value
+- `boolean` - Boolean value
+- `date` - Date/time value
+- `error` - Error value
+- `formula` - Formula
+- `blank` - Blank cell
+
 ## Constants
 
 The library exports several useful constants:
@@ -220,4 +304,37 @@ npx nitrogen
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Third-party open source attributions are listed in the [NOTICE](NOTICE) file.
+
+## Acknowledgements
+
+This library wraps the excellent [OpenXLSX](https://github.com/troldal/OpenXLSX) library, a modern C++ library for reading and writing Excel XLSX files.
+
+## Known Limitations
+
+This library is based on OpenXLSX and inherits the following limitations:
+
+### Unsupported Formats
+
+- **XLS format**: Only XLSX (Office Open XML) format is supported. Legacy XLS (Binary) format is not supported.
+
+### Unsupported Features
+
+The following Excel features are not supported and will be ignored when reading or writing files:
+
+- 🖼️ **Images**: Reading and writing images is not supported. Existing images in XLSX files will be ignored.
+- 📊 **Charts**: Charts, graphs, and sparklines are not supported.
+- ✏️ **Drawings/Shape**: Shapes, lines, arrows, and other drawing objects are not supported.
+- 🔍 **Pivot Tables**: Pivot tables and pivot charts are not supported.
+- 💻 **VBA/Macros**: VBA macros, forms, and ActiveX controls are not supported.
+- 📋 **Comments**: Cell comments and notes are not supported.
+- 📌 **Hyperlinks**: Only basic URL hyperlinks are supported.
+- 🔄 **Conditional Formatting**: Conditional formatting rules are not supported.
+- 📑 **Data Validation**: Data validation rules are not supported.
+
+### Notes
+
+- When reading XLSX files that contain unsupported features, the library will still read the cell data and formatting, but unsupported elements will be silently ignored.
+- When writing XLSX files, unsupported features cannot be added and will be omitted from the output.

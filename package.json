@@ -1,28 +1,47 @@
 {
   "name": "react-native-nitro-xlsx",
-  "version": "0.1.0",
-  "description": "Fast XLSX file generation for React Native using libxlsxwriter and Nitro Modules",
+  "version": "0.1.1",
+  "description": "Fast XLSX file reading and writing for React Native using OpenXLSX and Nitro Modules",
   "license": "MIT",
-  "homepage": "https://github.com/margelo/react-native-nitro-modules",
-  "author": "Margelo GmbH",
+  "homepage": "https://github.com/zydbkqf/react-native-nitro-xlsx",
+  "author": "Denis Cheung (https://github.com/zydbkqf)",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "source": "src/index.ts",
   "scripts": {
     "specs": "nitrogen",
-    "test": "jest"
+    "test": "jest",
+    "test:cpp": "cd cpp/tests && [ -n \"$OPENXLSX_PATH\" ] || OPENXLSX_PATH=$HOME/OpenXLSX; cmake -B build -DOPENXLSX_PATH=$OPENXLSX_PATH && cmake --build build && cd build && ctest --output-on-failure",
+    "test:cpp:clean": "rm -rf cpp/tests/build"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*",
+    "react-native": ">=0.78.0",
     "react-native-nitro-modules": ">=0.35.8"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
     "nitrogen": "*",
     "react": "*",
     "react-native": "*",
-    "react-native-nitro-modules": ">=0.35.8"
+    "react-native-nitro-modules": ">=0.35.8",
+    "ts-jest": "^29.4.11",
+    "typescript": "5.4.5"
   },
+  "files": [
+    "src",
+    "cpp",
+    "!cpp/tests",
+    "android",
+    "ios",
+    "nitro.json",
+    "nitrogen",
+    "NitroXlsx.podspec",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
   "packageManager": "yarn@4.17.1"
 }

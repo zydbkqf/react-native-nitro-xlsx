@@ -15,14 +15,14 @@
 
 // Forward declaration of `HybridXlsxWorksheetSpec` to properly resolve imports.
 namespace margelo::nitro::xlsx { class HybridXlsxWorksheetSpec; }
-// Forward declaration of `HybridXlsxFormatSpec` to properly resolve imports.
-namespace margelo::nitro::xlsx { class HybridXlsxFormatSpec; }
+// Forward declaration of `HybridXlsxCellFormatSpec` to properly resolve imports.
+namespace margelo::nitro::xlsx { class HybridXlsxCellFormatSpec; }
 
 #include <memory>
 #include "HybridXlsxWorksheetSpec.hpp"
 #include <string>
 #include <optional>
-#include "HybridXlsxFormatSpec.hpp"
+#include "HybridXlsxCellFormatSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
 #include <NitroModules/Promise.hpp>
 
@@ -62,7 +62,7 @@ namespace margelo::nitro::xlsx {
       virtual std::shared_ptr<HybridXlsxWorksheetSpec> getWorksheetByName(const std::string& name) = 0;
       virtual std::shared_ptr<HybridXlsxWorksheetSpec> getOrAddWorksheet(const std::string& name) = 0;
       virtual double getWorksheetCount() = 0;
-      virtual std::shared_ptr<HybridXlsxFormatSpec> addFormat() = 0;
+      virtual std::shared_ptr<HybridXlsxCellFormatSpec> addCellFormat() = 0;
       virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> getBuffer() = 0;
 
     protected:

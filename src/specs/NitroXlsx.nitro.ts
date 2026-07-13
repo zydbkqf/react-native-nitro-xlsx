@@ -1,40 +1,42 @@
 import { type HybridObject } from 'react-native-nitro-modules'
 
+export type CellType = 'empty' | 'string' | 'number' | 'boolean' | 'date' | 'error' | 'formula' | 'blank'
+
 export interface XlsxWorkbook extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   addWorksheet(name?: string): XlsxWorksheet
   getWorksheet(index: number): XlsxWorksheet
   getWorksheetByName(name: string): XlsxWorksheet
   getOrAddWorksheet(name: string): XlsxWorksheet
   getWorksheetCount(): number
-  addFormat(): XlsxFormat
+  addCellFormat(): XlsxCellFormat
   getBuffer(): Promise<ArrayBuffer>
 }
 
 export interface XlsxWorksheet extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   // Basic write methods
-  writeString(row: number, col: number, value: string, format?: XlsxFormat): void
-  writeNumber(row: number, col: number, value: number, format?: XlsxFormat): void
-  writeBoolean(row: number, col: number, value: boolean, format?: XlsxFormat): void
-  writeBlank(row: number, col: number, format?: XlsxFormat): void
+  writeString(row: number, col: number, value: string, format?: XlsxCellFormat): void
+  writeNumber(row: number, col: number, value: number, format?: XlsxCellFormat): void
+  writeBoolean(row: number, col: number, value: boolean, format?: XlsxCellFormat): void
+  writeBlank(row: number, col: number, format?: XlsxCellFormat): void
   
   // Formula support
-  writeFormula(row: number, col: number, formula: string, format?: XlsxFormat): void
-  writeFormulaNum(row: number, col: number, formula: string, number: number, format?: XlsxFormat): void
-  writeFormulaString(row: number, col: number, formula: string, str: string, format?: XlsxFormat): void
-  writeFormulaBoolean(row: number, col: number, formula: string, boolVal: boolean, format?: XlsxFormat): void
-  writeArrayFormula(firstRow: number, firstCol: number, lastRow: number, lastCol: number, formula: string, format?: XlsxFormat): void
+  writeFormula(row: number, col: number, formula: string, format?: XlsxCellFormat): void
+  writeFormulaNum(row: number, col: number, formula: string, number: number, format?: XlsxCellFormat): void
+  writeFormulaString(row: number, col: number, formula: string, str: string, format?: XlsxCellFormat): void
+  writeFormulaBoolean(row: number, col: number, formula: string, boolVal: boolean, format?: XlsxCellFormat): void
+  writeArrayFormula(firstRow: number, firstCol: number, lastRow: number, lastCol: number, formula: string, format?: XlsxCellFormat): void
   
   // Date/DateTime support
-  writeDatetime(row: number, col: number, datetime: number, format?: XlsxFormat): void
-  writeURL(row: number, col: number, url: string, format?: XlsxFormat): void
+  writeDatetime(row: number, col: number, datetime: number, format?: XlsxCellFormat): void
+  writeURL(row: number, col: number, url: string, format?: XlsxCellFormat): void
   
   // Column/Row operations
-  setColumn(firstCol: number, lastCol: number, width: number, format?: XlsxFormat): void
-  setRow(row: number, height: number, format?: XlsxFormat): void
+  setColumn(firstCol: number, lastCol: number, width: number, format?: XlsxCellFormat): void
+  setRow(row: number, height: number, format?: XlsxCellFormat): void
   
   // Merge cells
-  mergeRange(firstRow: number, firstCol: number, lastRow: number, lastCol: number, value: string, format?: XlsxFormat): void
-  mergeRangeNum(firstRow: number, firstCol: number, lastRow: number, lastCol: number, value: number, format?: XlsxFormat): void
+  mergeRange(firstRow: number, firstCol: number, lastRow: number, lastCol: number, value: string, format?: XlsxCellFormat): void
+  mergeRangeNum(firstRow: number, firstCol: number, lastRow: number, lastCol: number, value: number, format?: XlsxCellFormat): void
   
   // Image (uses file path)
   insertImage(row: number, col: number, path: string, xOffset?: number, yOffset?: number, xScale?: number, yScale?: number): void
@@ -71,9 +73,21 @@ export interface XlsxWorksheet extends HybridObject<{ ios: 'c++'; android: 'c++'
   setOutline(level: number): void
   setColumnHidden(firstCol: number, lastCol: number, hidden: boolean): void
   setRowHidden(row: number, hidden: boolean): void
+
+  // Read methods
+  getCellValue(row: number, col: number): string | number | boolean | null
+  getCellString(row: number, col: number): string
+  getCellRawValue(row: number, col: number): string
+  getCellType(row: number, col: number): CellType
+  getCellFormat(row: number, col: number): XlsxCellFormat
+  getRowCount(): number
+  getColumnCount(): number
+  getLastRow(): number
+  getLastColumn(): number
+  getName(): string
 }
 
-export interface XlsxFormat extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
+export interface XlsxCellFormat extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   // Font
   setFontName(name: string): void
   setFontSize(size: number): void
@@ -122,8 +136,19 @@ export interface XlsxFormat extends HybridObject<{ ios: 'c++'; android: 'c++' }>
   // Other
   setHyperlink(): void
   setFontOnly(): void
+
+  // Read format properties (getters)
+  getFontName(): string
+  getFontSize(): number
+  getFontColor(): number
+  getIsBold(): boolean
+  getIsItalic(): boolean
+  getNumFormat(): string
+  getBgColor(): number
 }
 
 export interface NitroXlsx extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   createWorkbook(): XlsxWorkbook
+  openWorkbook(path: string): XlsxWorkbook
+  openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook
 }

@@ -53,6 +53,16 @@ namespace margelo::nitro::xlsx {
       prototype.registerHybridMethod("setOutline", &HybridXlsxWorksheetSpec::setOutline);
       prototype.registerHybridMethod("setColumnHidden", &HybridXlsxWorksheetSpec::setColumnHidden);
       prototype.registerHybridMethod("setRowHidden", &HybridXlsxWorksheetSpec::setRowHidden);
+      prototype.registerHybridMethod("getCellValue", &HybridXlsxWorksheetSpec::getCellValue);
+      prototype.registerHybridMethod("getCellString", &HybridXlsxWorksheetSpec::getCellString);
+      prototype.registerHybridMethod("getCellRawValue", &HybridXlsxWorksheetSpec::getCellRawValue);
+      prototype.registerHybridMethod("getCellType", &HybridXlsxWorksheetSpec::getCellType);
+      prototype.registerHybridMethod("getCellFormat", &HybridXlsxWorksheetSpec::getCellFormat);
+      prototype.registerHybridMethod("getRowCount", &HybridXlsxWorksheetSpec::getRowCount);
+      prototype.registerHybridMethod("getColumnCount", &HybridXlsxWorksheetSpec::getColumnCount);
+      prototype.registerHybridMethod("getLastRow", &HybridXlsxWorksheetSpec::getLastRow);
+      prototype.registerHybridMethod("getLastColumn", &HybridXlsxWorksheetSpec::getLastColumn);
+      prototype.registerHybridMethod("getName", &HybridXlsxWorksheetSpec::getName);
     });
   }
 
