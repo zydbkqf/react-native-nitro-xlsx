@@ -13,7 +13,7 @@ namespace margelo::nitro::xlsx {
 
 class HybridXlsxWorkbook : public HybridXlsxWorkbookSpec {
 public:
-  HybridXlsxWorkbook();
+  HybridXlsxWorkbook(const std::optional<std::string>& tempDir = std::nullopt);
   ~HybridXlsxWorkbook() override;
 
   void openFromFile(const std::string& path);

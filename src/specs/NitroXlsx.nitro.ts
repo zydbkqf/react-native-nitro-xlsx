@@ -148,7 +148,7 @@ export interface XlsxCellFormat extends HybridObject<{ ios: 'c++'; android: 'c++
 }
 
 export interface NitroXlsx extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
-  createWorkbook(): XlsxWorkbook
+  createWorkbook(tempDir?: string): XlsxWorkbook
   openWorkbook(path: string): XlsxWorkbook
   openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook
 }

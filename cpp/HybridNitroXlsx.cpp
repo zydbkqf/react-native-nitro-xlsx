@@ -10,8 +10,8 @@ HybridNitroXlsx::HybridNitroXlsx()
 HybridNitroXlsx::~HybridNitroXlsx() {
 }
 
-std::shared_ptr<HybridXlsxWorkbookSpec> HybridNitroXlsx::createWorkbook() {
-  return std::make_shared<HybridXlsxWorkbook>();
+std::shared_ptr<HybridXlsxWorkbookSpec> HybridNitroXlsx::createWorkbook(const std::optional<std::string>& tempDir) {
+  return std::make_shared<HybridXlsxWorkbook>(tempDir);
 }
 
 std::shared_ptr<HybridXlsxWorkbookSpec> HybridNitroXlsx::openWorkbook(const std::string& path) {

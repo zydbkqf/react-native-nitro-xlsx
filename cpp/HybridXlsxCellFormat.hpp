@@ -68,6 +68,7 @@ public:
   double getBgColor() override;
 
 private:
+  std::optional<OpenXLSX::XLStyleIndex> _styleIndex;
   std::string _fontName;
   double _fontSize = 0;
   double _fontColor = 0;

@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-xlsx",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Fast XLSX file reading and writing for React Native using OpenXLSX and Nitro Modules",
   "license": "MIT",
   "homepage": "https://github.com/zydbkqf/react-native-nitro-xlsx",

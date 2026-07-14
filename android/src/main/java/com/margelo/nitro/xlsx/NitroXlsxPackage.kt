@@ -12,6 +12,7 @@ class NitroXlsxPackage : ReactPackage {
     }
   }
 
+  @Suppress("OVERRIDE_DEPRECATION")
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
     return emptyList()
   }

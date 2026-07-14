@@ -34,6 +34,8 @@ No additional setup needed.
 
 ## Usage
 
+> **Note**: Row and column indices are **1-based** (following Excel convention).
+
 ### Creating a Workbook
 
 ```typescript
@@ -53,27 +55,27 @@ headerFormat.setFgColor(Colors.BLUE);
 headerFormat.setAlign(Align.CENTER);
 
 // Write headers
-sheet.writeString(0, 0, 'Name', headerFormat);
-sheet.writeString(0, 1, 'Price', headerFormat);
-sheet.writeString(0, 2, 'Total', headerFormat);
+sheet.writeString(1, 1, 'Name', headerFormat);
+sheet.writeString(1, 2, 'Price', headerFormat);
+sheet.writeString(1, 3, 'Total', headerFormat);
 
 // Write data
-sheet.writeString(1, 0, 'Apple');
-sheet.writeNumber(1, 1, 1.50);
-sheet.writeFormula(1, 2, '=B2*1.1');
+sheet.writeString(2, 1, 'Apple');
+sheet.writeNumber(2, 2, 1.50);
+sheet.writeFormula(2, 3, '=B2*1.1');
 
-sheet.writeString(2, 0, 'Orange');
-sheet.writeNumber(2, 1, 2.00);
-sheet.writeFormula(2, 2, '=B3*1.1');
+sheet.writeString(3, 1, 'Orange');
+sheet.writeNumber(3, 2, 2.00);
+sheet.writeFormula(3, 3, '=B3*1.1');
 
 // Date example
 const date = new Date(2024, 0, 15);
 const excelDate = (date.getTime() / 86400000) + 25569; // Convert to Excel date
-sheet.writeDatetime(3, 0, excelDate);
+sheet.writeDatetime(4, 1, excelDate);
 
 // Set column widths
-sheet.setColumn(0, 0, 15);
-sheet.setColumn(1, 2, 12);
+sheet.setColumn(1, 1, 15);
+sheet.setColumn(2, 3, 12);
 
 // Get the buffer and do something with it
 const buffer = await workbook.getBuffer();
@@ -104,8 +106,8 @@ const lastRow = sheet.getLastRow();
 const lastCol = sheet.getLastColumn();
 
 // Read cell values
-for (let row = 0; row <= lastRow; row++) {
-  for (let col = 0; col <= lastCol; col++) {
+for (let row = 1; row <= lastRow; row++) {
+  for (let col = 1; col <= lastCol; col++) {
     const value = sheet.getCellValue(row, col);
     const type = sheet.getCellType(row, col);
     const strValue = sheet.getCellString(row, col);
@@ -114,7 +116,7 @@ for (let row = 0; row <= lastRow; row++) {
 }
 
 // Read cell format
-const format = sheet.getCellFormat(0, 0);
+const format = sheet.getCellFormat(1, 1);
 const isBold = format.getIsBold();
 const fontName = format.getFontName();
 const fontSize = format.getFontSize();
@@ -124,7 +126,7 @@ const fontSize = format.getFontSize();
 
 ### NitroXlsx
 
-- `createWorkbook(): XlsxWorkbook` - Create a new workbook
+- `createWorkbook(tempDir?: string): XlsxWorkbook` - Create a new workbook. On Android, pass the app's cache directory (e.g., `RNFS.CachesDirectoryPath`) to avoid sandbox write permission issues.
 - `openWorkbook(path: string): XlsxWorkbook` - Open workbook from file path
 - `openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook` - Open workbook from buffer
 
@@ -139,6 +141,8 @@ const fontSize = format.getFontSize();
 - `getBuffer(): Promise<ArrayBuffer>` - Generate and return the XLSX file as a buffer
 
 ### XlsxWorksheet
+
+> **Note**: All row and column indices are **1-based** (following Excel convention).
 
 #### Basic Write Methods
 | Method | Description |

@@ -104,7 +104,9 @@ void HybridXlsxWorksheet::mergeRange(double firstRow, double firstCol, double la
   OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
   OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
   _worksheet.mergeCells(range);
-  _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol)).value() = value;
+  OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+  cell.value() = value;
+  applyFormat(cell, format);
 }
 
 void HybridXlsxWorksheet::mergeRangeNum(double firstRow, double firstCol, double lastRow, double lastCol, double value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
@@ -112,7 +114,9 @@ void HybridXlsxWorksheet::mergeRangeNum(double firstRow, double firstCol, double
   OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
   OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
   _worksheet.mergeCells(range);
-  _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol)).value() = value;
+  OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+  cell.value() = value;
+  applyFormat(cell, format);
 }
 
 void HybridXlsxWorksheet::insertImage(double row, double col, const std::string& path, std::optional<double> xOffset, std::optional<double> yOffset, std::optional<double> xScale, std::optional<double> yScale) {

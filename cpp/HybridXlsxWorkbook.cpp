@@ -40,10 +40,14 @@ namespace {
   }
 }
 
-HybridXlsxWorkbook::HybridXlsxWorkbook()
+HybridXlsxWorkbook::HybridXlsxWorkbook(const std::optional<std::string>& tempDir)
     : HybridObject("XlsxWorkbook"), HybridXlsxWorkbookSpec(), _finalized(false) {
   _workbook = std::make_unique<OpenXLSX::XLDocument>();
-  _tempDir = getTempDir();
+  if (tempDir.has_value()) {
+    _tempDir = *tempDir;
+  } else {
+    _tempDir = getTempDir();
+  }
 }
 
 HybridXlsxWorkbook::~HybridXlsxWorkbook() {
@@ -93,7 +97,8 @@ std::shared_ptr<HybridXlsxWorksheetSpec> HybridXlsxWorkbook::addWorksheet(const 
     sheetName = *name;
     auto it = _worksheetNames.find(sheetName);
     if (it != _worksheetNames.end()) {
-      throw std::runtime_error("Sheet named '" + sheetName + "' already exists");
+      // Worksheet already exists (e.g., default Sheet1 created by OpenXLSX), return it
+      return it->second;
     }
   } else {
     int idx = 1;
