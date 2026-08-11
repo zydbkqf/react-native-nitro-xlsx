@@ -75,6 +75,7 @@ void HybridXlsxWorksheet::writeFormulaBoolean(double row, double col, const std:
 void HybridXlsxWorksheet::writeArrayFormula(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
   OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
   cell.formula() = formula;
+  applyFormat(cell, format);
 }
 
 void HybridXlsxWorksheet::writeDatetime(double row, double col, double datetime, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
@@ -93,10 +94,33 @@ void HybridXlsxWorksheet::setColumn(double firstCol, double lastCol, double widt
   for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
     _worksheet.column(c).setWidth(static_cast<float>(width));
   }
+  if (format.has_value()) {
+    // Apply format to entire column range by setting it on cells in the first row
+    // (OpenXLSX does not support column-level style; apply to first row cells as a hint)
+    auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
+    if (hybridFormat) {
+      auto styleIndex = hybridFormat->applyToDocument(_doc.styles());
+      for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
+        OpenXLSX::XLCell cell = _worksheet.cell(1, c);
+        hybridFormat->applyToCell(cell, styleIndex);
+      }
+    }
+  }
 }
 
 void HybridXlsxWorksheet::setRow(double row, double height, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
   _worksheet.row(static_cast<unsigned int>(row)).setHeight(static_cast<float>(height));
+  if (format.has_value()) {
+    auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
+    if (hybridFormat) {
+      auto styleIndex = hybridFormat->applyToDocument(_doc.styles());
+      unsigned int colCount = _worksheet.columnCount();
+      for (unsigned int c = 1; c <= colCount; ++c) {
+        OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(row), c);
+        hybridFormat->applyToCell(cell, styleIndex);
+      }
+    }
+  }
 }
 
 void HybridXlsxWorksheet::mergeRange(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {

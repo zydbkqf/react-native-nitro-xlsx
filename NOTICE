@@ -4,7 +4,7 @@ This software uses third-party open source components listed below, with full li
 ================================================================================
 1. OpenXLSX
 Repository: https://github.com/troldal/OpenXLSX
-License: BSD 3-Clause License
+License: BSD 3-Clause License (SPDX: BSD-3-Clause)
 Copyright (c) 2020 Kenneth Troldal Balslev
 
 Full BSD 3-Clause License text:
@@ -27,7 +27,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 2. react-native-nitro-modules
 Repository: https://github.com/mrousavy/nitro
 Version: 0.58.3
-License: MIT License
+License: MIT License (SPDX: MIT)
 Copyright (c) 2024 Marc Rousavy
 
 Full MIT License text:
@@ -56,7 +56,7 @@ SOFTWARE.
 ================================================================================
 3. pugixml (OpenXLSX dependency)
 Repository: https://github.com/zeux/pugixml
-License: MIT License
+License: MIT License (SPDX: MIT)
 Copyright (c) 2006-2024 Arseny Kapoulkine
 
 Full MIT License text:
@@ -74,7 +74,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ================================================================================
 4. Zippy (OpenXLSX dependency)
 Repository: https://github.com/troldal/Zippy
-License: MIT License
+License: MIT License (SPDX: MIT)
 Copyright (c) 2019 Kenneth Troldal Balslev
 
 Full MIT License text:
@@ -104,7 +104,7 @@ SOFTWARE.
 ================================================================================
 5. miniz (OpenXLSX dependency)
 Repository: https://github.com/richgel999/miniz
-License: MIT License
+License: MIT License (SPDX: MIT)
 Copyright (c) 2013-2014 RAD Game Tools and Valve Software
 Copyright (c) 2010-2014 Rich Geldreich and Tenacious Software LLC
 

@@ -22,6 +22,8 @@ npm install react-native-nitro-xlsx
 yarn add react-native-nitro-xlsx
 ```
 
+> **Note**: Native dependencies (OpenXlsx) are downloaded from GitHub during the first build. Please make sure you have a stable network connection.
+
 ### iOS
 
 ```sh
