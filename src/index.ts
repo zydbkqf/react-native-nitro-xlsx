@@ -1,7 +1,19 @@
 import { NitroModules } from 'react-native-nitro-modules'
-import type { NitroXlsx as NitroXlsxSpec } from './specs/NitroXlsx.nitro'
+import type { NitroXlsx as NitroXlsxSpec, XlsxWorkbook as XlsxWorkbookSpec } from './specs/NitroXlsx.nitro'
 
-export const NitroXlsx = NitroModules.createHybridObject<NitroXlsxSpec>('NitroXlsx')
+const NitroXlsxBridge = NitroModules.createHybridObject<NitroXlsxSpec>('NitroXlsx')
+
+type JsonRecord = Record<string, string | number>
+
+export const NitroXlsx = Object.assign(NitroXlsxBridge, {
+  fromJSON(data: JsonRecord[]): XlsxWorkbookSpec {
+    return NitroXlsxBridge.fromJSON(JSON.stringify(data))
+  },
+})
+
+export function toJSON(workbook: XlsxWorkbookSpec, keys?: string[]): JsonRecord[] {
+  return JSON.parse(workbook.toJSON(keys))
+}
 
 export type { XlsxWorkbook, XlsxWorksheet, XlsxCellFormat } from './specs/NitroXlsx.nitro'
 

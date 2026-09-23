@@ -26,6 +26,7 @@ public:
   double getWorksheetCount() override;
   std::shared_ptr<HybridXlsxCellFormatSpec> addCellFormat() override;
   std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> getBuffer() override;
+  std::string toJSON(const std::optional<std::vector<std::string>>& keys) override;
 
 private:
   std::unique_ptr<OpenXLSX::XLDocument> _workbook;

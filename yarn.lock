@@ -3955,7 +3955,7 @@ __metadata:
     typescript: "npm:5.4.5"
   peerDependencies:
     react: "*"
-    react-native: "*"
+    react-native: ">=0.78.0"
     react-native-nitro-modules: ">=0.35.8"
   languageName: unknown
   linkType: soft

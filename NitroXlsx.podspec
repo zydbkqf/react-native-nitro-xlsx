@@ -13,7 +13,11 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.1" }
   s.source       = { :git => "https://github.com/zydbkqf/react-native-nitro-xlsx.git", :tag => "#{s.version}" }
 
-  s.exclude_files = "cpp/tests/**/*"
+  s.exclude_files = [
+    "cpp/tests/**/*",
+    "OpenXLSX/ThirdParty/miniz/tests/**/*",
+    "OpenXLSX/ThirdParty/miniz/examples/**/*",
+  ]
 
   s.source_files = [
     "cpp/**/*.{h,hpp,cpp}",
@@ -49,61 +53,20 @@ Pod::Spec.new do |s|
     "HEADER_SEARCH_PATHS" => "$(inherited) ${PODS_TARGET_SRCROOT}/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX/headers ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/pugixml/src ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/miniz",
   }
 
-  s.prepare_command = <<-CMD
-    if [ ! -d "OpenXLSX" ]; then
-      git clone --depth 1 --branch v0.5.1 https://github.com/troldal/OpenXLSX.git
-    fi
-    mkdir -p OpenXLSX/ThirdParty
-    if [ ! -d "OpenXLSX/ThirdParty/pugixml" ]; then
-      git clone --depth 1 --branch v1.15 https://github.com/zeux/pugixml.git OpenXLSX/ThirdParty/pugixml
-    fi
-    if [ ! -d "OpenXLSX/ThirdParty/miniz" ]; then
-      git clone --depth 1 --branch 3.0.2 https://github.com/richgel999/miniz.git OpenXLSX/ThirdParty/miniz
-    fi
-    if [ ! -f "OpenXLSX/ThirdParty/miniz/miniz_export.h" ]; then
-      cat > OpenXLSX/ThirdParty/miniz/miniz_export.h << 'EOF'
-#ifndef MINIZ_EXPORT_H
-#define MINIZ_EXPORT_H
+  # Prepare OpenXLSX and its dependencies (pugixml, miniz) via a Node script
+  # so the same logic can be reused from both CocoaPods and Android CMake.
+  s.prepare_command = "node #{__dir__}/scripts/prepare-openxlsx.js"
 
-#ifndef MINIZ_EXPORT
-#define MINIZ_EXPORT
-#endif
-
-#ifndef MINIZ_DEPRECATED
-#define MINIZ_DEPRECATED
-#endif
-
-#ifndef MINIZ_DEPRECATED_EXPORT
-#define MINIZ_DEPRECATED_EXPORT MINIZ_EXPORT MINIZ_DEPRECATED
-#endif
-
-#ifndef MINIZ_NO_EXPORT
-#define MINIZ_NO_EXPORT
-#endif
-
-#endif
-EOF
-    fi
-    if [ ! -f "OpenXLSX/OpenXLSX/headers/OpenXLSX-Exports.hpp" ]; then
-      cat > OpenXLSX/OpenXLSX/headers/OpenXLSX-Exports.hpp << 'EOF'
-#ifndef OPENXLSX_EXPORTS_HPP
-#define OPENXLSX_EXPORTS_HPP
-
-#ifndef OPENXLSX_EXPORT
-#define OPENXLSX_EXPORT
-#endif
-
-#ifndef OPENXLSX_HIDDEN
-#define OPENXLSX_HIDDEN
-#endif
-
-#endif
-EOF
-    fi
-    if [ ! -d "OpenXLSX/OpenXLSX/headers/OpenXLSX" ]; then
-      cd OpenXLSX/OpenXLSX/headers && ln -sf . OpenXLSX && cd -
-    fi
-  CMD
+  # Swift Package Manager declaration for React Native 0.87+.
+  # This exposes NitroXlsx as a local Swift package; the heavy lifting for
+  # OpenXLSX is still done by the prepare command above.
+  if ENV['NITRO_XLSX_USE_SPM'] == '1' && defined?(SPM) && SPM.respond_to?(:dependency)
+    SPM.dependency(s,
+      url: File.join(__dir__, "."),
+      requirement: { kind: 'upToNextMajorVersion', minimumVersion: s.version.to_s },
+      products: ['NitroXlsx']
+    )
+  end
 
   load 'nitrogen/generated/ios/NitroXlsx+autolinking.rb'
   add_nitrogen_files(s)

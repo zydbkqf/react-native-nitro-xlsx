@@ -56,6 +56,7 @@ namespace margelo::nitro::xlsx {
       virtual std::shared_ptr<HybridXlsxWorkbookSpec> createWorkbook(const std::optional<std::string>& tempDir) = 0;
       virtual std::shared_ptr<HybridXlsxWorkbookSpec> openWorkbook(const std::string& path) = 0;
       virtual std::shared_ptr<HybridXlsxWorkbookSpec> openWorkbookFromBuffer(const std::shared_ptr<ArrayBuffer>& buffer) = 0;
+      virtual std::shared_ptr<HybridXlsxWorkbookSpec> fromJSON(const std::string& data) = 0;
 
     protected:
       // Hybrid Setup

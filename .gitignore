@@ -68,6 +68,9 @@ yarn-error.log
 /coverage
 *.tsbuildinfo
 
+# OpenXLSX and its dependencies are downloaded by scripts/prepare-openxlsx.js
+/OpenXLSX
+
 # Yarn
 .yarn/*
 !.yarn/patches

@@ -4,11 +4,42 @@
 #include <sstream>
 #include <cstdlib>
 #include <unistd.h>
+#include <cmath>
+#include <cstring>
+#include <iomanip>
 
 #ifdef __ANDROID__
 #include <android/api-level.h>
 #include <sys/stat.h>
 #endif
+
+namespace {
+
+void writeJsonString(std::ostringstream& out, const std::string& s) {
+  out << '"';
+  for (char c : s) {
+    switch (c) {
+      case '"':  out << "\\\""; break;
+      case '\\': out << "\\\\"; break;
+      case '\b': out << "\\b";  break;
+      case '\f': out << "\\f";  break;
+      case '\n': out << "\\n";  break;
+      case '\r': out << "\\r";  break;
+      case '\t': out << "\\t";  break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) {
+          out << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+              << static_cast<int>(static_cast<unsigned char>(c))
+              << std::dec;
+        } else {
+          out << c;
+        }
+    }
+  }
+  out << '"';
+}
+
+} // anonymous namespace
 
 namespace margelo::nitro::xlsx {
 
@@ -184,6 +215,87 @@ std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> HybridXlsxWorkbook::getBu
   }
   
   return promise;
+}
+
+std::string HybridXlsxWorkbook::toJSON(const std::optional<std::vector<std::string>>& keys) {
+  if (_worksheets.empty()) {
+    return "[]";
+  }
+  auto& ws = _worksheets[0];
+  auto lastRow = static_cast<unsigned int>(ws->getLastRow());
+  auto lastCol = static_cast<unsigned int>(ws->getLastColumn());
+  if (lastRow == 0 || lastCol == 0) {
+    return "[]";
+  }
+
+  unsigned int dataStartRow = 1;
+  std::vector<std::string> resolvedKeys;
+
+  if (keys.has_value()) {
+    resolvedKeys = *keys;
+  } else {
+    dataStartRow = 2;
+    for (unsigned int c = 1; c <= lastCol; ++c) {
+      auto val = ws->getCellValue(1, c);
+      if (auto* s = std::get_if<std::string>(&val)) {
+        resolvedKeys.push_back(*s);
+      } else if (auto* d = std::get_if<double>(&val)) {
+        resolvedKeys.push_back(std::to_string(static_cast<int>(*d)));
+      } else {
+        resolvedKeys.push_back("col" + std::to_string(c));
+      }
+    }
+  }
+
+  if (resolvedKeys.empty()) {
+    return "[]";
+  }
+
+  std::ostringstream out;
+  out << "[";
+
+  bool firstRow = true;
+
+  for (unsigned int r = dataStartRow; r <= lastRow; ++r) {
+    bool hasData = false;
+    for (unsigned int c = 1; c <= std::min(static_cast<unsigned int>(resolvedKeys.size()), lastCol); ++c) {
+      auto cellType = ws->getCellType(r, c);
+      if (cellType != CellType::EMPTY) {
+        hasData = true;
+        break;
+      }
+    }
+    if (!hasData) continue;
+
+    if (!firstRow) out << ",";
+    firstRow = false;
+
+    out << "{";
+    unsigned int keyCount = std::min(static_cast<unsigned int>(resolvedKeys.size()), lastCol);
+    for (unsigned int c = 0; c < keyCount; ++c) {
+      if (c > 0) out << ",";
+      writeJsonString(out, resolvedKeys[c]);
+      out << ":";
+      auto val = ws->getCellValue(r, c + 1);
+      if (auto* s = std::get_if<std::string>(&val)) {
+        writeJsonString(out, *s);
+      } else if (auto* d = std::get_if<double>(&val)) {
+        if (std::isnan(*d) || std::isinf(*d)) {
+          out << "null";
+        } else {
+          out << *d;
+        }
+      } else if (auto* b = std::get_if<bool>(&val)) {
+        out << (*b ? "true" : "false");
+      } else {
+        out << "null";
+      }
+    }
+    out << "}";
+  }
+
+  out << "]";
+  return out.str();
 }
 
 }

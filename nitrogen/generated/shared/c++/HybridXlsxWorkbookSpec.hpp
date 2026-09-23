@@ -25,6 +25,7 @@ namespace margelo::nitro::xlsx { class HybridXlsxCellFormatSpec; }
 #include "HybridXlsxCellFormatSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
 #include <NitroModules/Promise.hpp>
+#include <vector>
 
 namespace margelo::nitro::xlsx {
 
@@ -64,6 +65,7 @@ namespace margelo::nitro::xlsx {
       virtual double getWorksheetCount() = 0;
       virtual std::shared_ptr<HybridXlsxCellFormatSpec> addCellFormat() = 0;
       virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> getBuffer() = 0;
+      virtual std::string toJSON(const std::optional<std::vector<std::string>>& keys) = 0;
 
     protected:
       // Hybrid Setup

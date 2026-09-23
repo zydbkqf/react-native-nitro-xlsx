@@ -10,6 +10,7 @@ export interface XlsxWorkbook extends HybridObject<{ ios: 'c++'; android: 'c++' 
   getWorksheetCount(): number
   addCellFormat(): XlsxCellFormat
   getBuffer(): Promise<ArrayBuffer>
+  toJSON(keys?: string[]): string
 }
 
 export interface XlsxWorksheet extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
@@ -151,4 +152,5 @@ export interface NitroXlsx extends HybridObject<{ ios: 'c++'; android: 'c++' }> 
   createWorkbook(tempDir?: string): XlsxWorkbook
   openWorkbook(path: string): XlsxWorkbook
   openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook
+  fromJSON(data: string): XlsxWorkbook
 }

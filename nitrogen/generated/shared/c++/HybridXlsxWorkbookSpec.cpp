@@ -21,6 +21,7 @@ namespace margelo::nitro::xlsx {
       prototype.registerHybridMethod("getWorksheetCount", &HybridXlsxWorkbookSpec::getWorksheetCount);
       prototype.registerHybridMethod("addCellFormat", &HybridXlsxWorkbookSpec::addCellFormat);
       prototype.registerHybridMethod("getBuffer", &HybridXlsxWorkbookSpec::getBuffer);
+      prototype.registerHybridMethod("toJSON", &HybridXlsxWorkbookSpec::toJSON);
     });
   }
 

@@ -17,6 +17,7 @@ namespace margelo::nitro::xlsx {
       prototype.registerHybridMethod("createWorkbook", &HybridNitroXlsxSpec::createWorkbook);
       prototype.registerHybridMethod("openWorkbook", &HybridNitroXlsxSpec::openWorkbook);
       prototype.registerHybridMethod("openWorkbookFromBuffer", &HybridNitroXlsxSpec::openWorkbookFromBuffer);
+      prototype.registerHybridMethod("fromJSON", &HybridNitroXlsxSpec::fromJSON);
     });
   }
 

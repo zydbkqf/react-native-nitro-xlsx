@@ -124,6 +124,47 @@ const fontName = format.getFontName();
 const fontSize = format.getFontSize();
 ```
 
+### Working with JSON
+
+#### Export to JSON (`toJSON`)
+
+Convert worksheet data to a JSON array. By default, the first row is used as object keys.
+
+```typescript
+import { NitroXlsx, toJSON } from 'react-native-nitro-xlsx';
+
+const workbook = NitroXlsx.openWorkbook('/path/to/data.xlsx');
+
+// Use the first row as keys (default)
+const data = toJSON(workbook);
+// Result: [{ "Name": "Alice", "Age": 30 }, { "Name": "Bob", "Age": 25 }]
+
+// Provide custom keys
+const data = toJSON(workbook, ['firstName', 'yearsOld']);
+// Result: [{ "firstName": "Alice", "yearsOld": 30 }, { "firstName": "Bob", "yearsOld": 25 }]
+```
+
+#### Import from JSON (`fromJSON`)
+
+Create a workbook from a JSON array. The first object's keys become the header row.
+
+```typescript
+import { NitroXlsx } from 'react-native-nitro-xlsx';
+
+const data = [
+  { Name: 'Alice', Age: 30, Active: true },
+  { Name: 'Bob', Age: 25, Active: false },
+];
+
+const workbook = NitroXlsx.fromJSON(data);
+// The workbook now has a worksheet with:
+// Row 1 (header): Name | Age | Active
+// Row 2:          Alice | 30 | true
+// Row 3:          Bob   | 25 | false
+
+const buffer = await workbook.getBuffer();
+```
+
 ## API
 
 ### NitroXlsx
@@ -131,6 +172,7 @@ const fontSize = format.getFontSize();
 - `createWorkbook(tempDir?: string): XlsxWorkbook` - Create a new workbook. On Android, pass the app's cache directory (e.g., `RNFS.CachesDirectoryPath`) to avoid sandbox write permission issues.
 - `openWorkbook(path: string): XlsxWorkbook` - Open workbook from file path
 - `openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook` - Open workbook from buffer
+- `fromJSON(data: Array<Record<string, string | number>>): XlsxWorkbook` - Create a workbook from a JSON array (static method)
 
 ### XlsxWorkbook
 
@@ -141,6 +183,7 @@ const fontSize = format.getFontSize();
 - `getWorksheetCount(): number` - Get number of worksheets
 - `addCellFormat(): XlsxCellFormat` - Add a new cell format
 - `getBuffer(): Promise<ArrayBuffer>` - Generate and return the XLSX file as a buffer
+- `toJSON(keys?: string[]): Array<Record<string, string | number>>` - Convert worksheet data to a JSON array
 
 ### XlsxWorksheet
 
