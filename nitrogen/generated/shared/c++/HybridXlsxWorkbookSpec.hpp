@@ -25,7 +25,9 @@ namespace margelo::nitro::xlsx { class HybridXlsxCellFormatSpec; }
 #include "HybridXlsxCellFormatSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
 #include <NitroModules/Promise.hpp>
+#include <NitroModules/AnyMap.hpp>
 #include <vector>
+#include <unordered_map>
 
 namespace margelo::nitro::xlsx {
 
@@ -63,9 +65,12 @@ namespace margelo::nitro::xlsx {
       virtual std::shared_ptr<HybridXlsxWorksheetSpec> getWorksheetByName(const std::string& name) = 0;
       virtual std::shared_ptr<HybridXlsxWorksheetSpec> getOrAddWorksheet(const std::string& name) = 0;
       virtual double getWorksheetCount() = 0;
+      virtual void deleteSheet(const std::string& name) = 0;
+      virtual void updateSheetName(const std::string& oldName, const std::string& newName) = 0;
+      virtual std::shared_ptr<HybridXlsxWorksheetSpec> clone(const std::string& existingName, const std::string& newName) = 0;
       virtual std::shared_ptr<HybridXlsxCellFormatSpec> addCellFormat() = 0;
       virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> getBuffer() = 0;
-      virtual std::string toJSON(const std::optional<std::vector<std::string>>& keys) = 0;
+      virtual std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> toJSON() = 0;
 
     protected:
       // Hybrid Setup

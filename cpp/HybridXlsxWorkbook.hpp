@@ -13,7 +13,7 @@ namespace margelo::nitro::xlsx {
 
 class HybridXlsxWorkbook : public HybridXlsxWorkbookSpec {
 public:
-  HybridXlsxWorkbook(const std::optional<std::string>& tempDir = std::nullopt);
+  HybridXlsxWorkbook();
   ~HybridXlsxWorkbook() override;
 
   void openFromFile(const std::string& path);
@@ -24,9 +24,12 @@ public:
   std::shared_ptr<HybridXlsxWorksheetSpec> getWorksheetByName(const std::string& name) override;
   std::shared_ptr<HybridXlsxWorksheetSpec> getOrAddWorksheet(const std::string& name) override;
   double getWorksheetCount() override;
+  void deleteSheet(const std::string& name) override;
+  void updateSheetName(const std::string& oldName, const std::string& newName) override;
+  std::shared_ptr<HybridXlsxWorksheetSpec> clone(const std::string& existingName, const std::string& newName) override;
   std::shared_ptr<HybridXlsxCellFormatSpec> addCellFormat() override;
   std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> getBuffer() override;
-  std::string toJSON(const std::optional<std::vector<std::string>>& keys) override;
+  std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> toJSON() override;
 
 private:
   std::unique_ptr<OpenXLSX::XLDocument> _workbook;
@@ -37,6 +40,8 @@ private:
   std::string _tempDir;
 
   void loadWorksheets();
+  void ensureOpen();
+  std::string tempFilePath(const char* prefix);
 };
 
 }

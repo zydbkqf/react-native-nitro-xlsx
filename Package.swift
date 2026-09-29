@@ -8,7 +8,8 @@ import PackageDescription
 //
 // The local package reference below lets RN 0.87's spm_dependency helper
 // register NitroXlsx in the Pods project when SwiftPM mode is enabled.
-// Full SPM-based compilation of the C++ sources is not yet supported.
+// Full SPM-based compilation of the C++ sources is not yet supported —
+// ios/XlsxCacheDir.mm is listed so the target has a real source file.
 
 let package = Package(
     name: "NitroXlsx",
@@ -25,7 +26,10 @@ let package = Package(
         .target(
             name: "NitroXlsx",
             path: "ios",
-            sources: ["dummy.swift"]
+            sources: ["XlsxCacheDir.mm"],
+            cxxSettings: [
+                .headerSearchPath("../cpp")
+            ]
         )
     ]
 )

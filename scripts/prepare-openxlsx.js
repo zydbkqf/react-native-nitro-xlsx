@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, symlinkSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, symlinkSync, readFileSync, lstatSync, unlinkSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -36,12 +36,29 @@ function writeFileIfNotExists(path, content) {
 }
 
 function createSymlinkIfNotExists(target, link) {
-  if (existsSync(link)) {
-    console.log(`Already exists: ${link}`);
-    return;
+  // lstat does NOT follow symlinks, so a broken link still counts as "exists".
+  // existsSync would return false for a broken link and then symlinkSync throws EEXIST.
+  try {
+    lstatSync(link);
+    if (existsSync(link)) {
+      console.log(`Already exists: ${link}`);
+      return;
+    }
+    // Path exists but is a broken symlink — replace it below.
+    unlinkSync(link);
+  } catch {
+    // not present — fall through and create
   }
-  symlinkSync(target, link);
-  console.log(`Created symlink: ${link} -> ${target}`);
+  try {
+    symlinkSync(target, link);
+    console.log(`Created symlink: ${link} -> ${target}`);
+  } catch (e) {
+    if (e.code === 'EEXIST') {
+      console.log(`Already exists: ${link}`);
+      return;
+    }
+    throw e;
+  }
 }
 
 function getPackageVersion() {

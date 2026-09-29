@@ -6,12 +6,19 @@ A React Native module for reading and writing Excel XLSX files using [OpenXLSX](
 
 - 📊 Full Excel XLSX file creation support
 - 📖 Read existing XLSX files (from file path or buffer)
-- 📝 Formula support (with default values)
-- 📅 Date/DateTime support
-- 🖼️ Image insertion (from file path or buffer)
-- 🎨 Rich formatting (fonts, colors, borders, alignment)
-- 📄 Page setup (margins, orientation, headers/footers)
-- 🔒 Sheet protection
+- 📝 Formula support (with default values) & array formulas
+- 📅 Date / DateTime support
+- 🔗 Hyperlinks (URLs)
+- 🔄 JSON import / export (`fromJSON` / `toJSON`)
+- 🎨 Rich formatting (fonts, colors, borders, alignment, number formats)
+- 🔒 Sheet protection (password, objects/scenarios, fine-grained allow/deny)
+- 📋 Cell comments (get / set / delete, multi-author)
+- 🔤 Conditional formatting rules
+- 🗂️ Sheet management (delete / rename / clone)
+- ➕ Row/column delete, merge / unmerge
+- 🧩 Hidden rows/columns
+- 🔍 Read cells (value, type, format, formula) + findCell
+- ⚠️ Structured native error codes mapped to JS
 - 📦 Export as ArrayBuffer - no file system required!
 
 ## Installation
@@ -126,41 +133,59 @@ const fontSize = format.getFontSize();
 
 ### Working with JSON
 
-#### Export to JSON (`toJSON`)
+Per-sheet conversion lives on `XlsxWorksheet`. Workbook-level conversion uses a
+`Record` keyed by worksheet name.
 
-Convert worksheet data to a JSON array. By default, the first row is used as object keys.
+#### Export a worksheet (`sheet.toJSON`)
+
+Convert one worksheet's data to an array of records. By default, the first row is used as object keys.
 
 ```typescript
-import { NitroXlsx, toJSON } from 'react-native-nitro-xlsx';
-
-const workbook = NitroXlsx.openWorkbook('/path/to/data.xlsx');
+const sheet = workbook.getWorksheetByName('Data');
 
 // Use the first row as keys (default)
-const data = toJSON(workbook);
+const rows = sheet.toJSON();
 // Result: [{ "Name": "Alice", "Age": 30 }, { "Name": "Bob", "Age": 25 }]
 
 // Provide custom keys
-const data = toJSON(workbook, ['firstName', 'yearsOld']);
-// Result: [{ "firstName": "Alice", "yearsOld": 30 }, { "firstName": "Bob", "yearsOld": 25 }]
+const rows2 = sheet.toJSON(['firstName', 'yearsOld']);
+// Result: [{ "firstName": "Alice", "yearsOld": 30 }, ...]
 ```
 
-#### Import from JSON (`fromJSON`)
+#### Import into a worksheet (`sheet.fromJSON`)
 
-Create a workbook from a JSON array. The first object's keys become the header row.
+Write an array of records into an existing worksheet. The first record's keys become the header row.
 
 ```typescript
-import { NitroXlsx } from 'react-native-nitro-xlsx';
-
-const data = [
+const sheet = workbook.addWorksheet('Data');
+sheet.fromJSON([
   { Name: 'Alice', Age: 30, Active: true },
   { Name: 'Bob', Age: 25, Active: false },
-];
+]);
+// Row 1 (header): Active | Age | Name   (keys are sorted alphabetically)
+// Row 2:          true   | 30  | Alice
+// Row 3:          false  | 25  | Bob
+```
 
-const workbook = NitroXlsx.fromJSON(data);
-// The workbook now has a worksheet with:
-// Row 1 (header): Name | Age | Active
-// Row 2:          Alice | 30 | true
-// Row 3:          Bob   | 25 | false
+#### Export all sheets (`workbook.toJSON`)
+
+Returns a `Record` keyed by worksheet name.
+
+```typescript
+const all = workbook.toJSON();
+// Result: { "Data": [{ Name: 'Alice', ... }], "Summary": [{ ... }] }
+```
+
+#### Create a workbook from multiple sheets (`NitroXlsx.fromJSON`)
+
+Each key becomes a worksheet.
+
+```typescript
+const workbook = NitroXlsx.fromJSON({
+  Data: [{ Name: 'Alice', Age: 30 }],
+  Summary: [{ Total: 1 }],
+});
+// Creates worksheets "Data" and "Summary"
 
 const buffer = await workbook.getBuffer();
 ```
@@ -169,10 +194,10 @@ const buffer = await workbook.getBuffer();
 
 ### NitroXlsx
 
-- `createWorkbook(tempDir?: string): XlsxWorkbook` - Create a new workbook. On Android, pass the app's cache directory (e.g., `RNFS.CachesDirectoryPath`) to avoid sandbox write permission issues.
+- `createWorkbook(): XlsxWorkbook` - Create a new workbook. The native side supplies the platform cache directory automatically (`Context.getCacheDir()` on Android, `NSCachesDirectory` on iOS).
 - `openWorkbook(path: string): XlsxWorkbook` - Open workbook from file path
 - `openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook` - Open workbook from buffer
-- `fromJSON(data: Array<Record<string, string | number>>): XlsxWorkbook` - Create a workbook from a JSON array (static method)
+- `fromJSON(data: Record<string, Array<Record<string, string | number | boolean | null>>>): XlsxWorkbook` - Create a workbook with one worksheet per key (native `AnyMap`s, no JSON round-trip)
 
 ### XlsxWorkbook
 
@@ -181,9 +206,12 @@ const buffer = await workbook.getBuffer();
 - `getWorksheetByName(name: string): XlsxWorksheet` - Get worksheet by name
 - `getOrAddWorksheet(name: string): XlsxWorksheet` - Get or add worksheet
 - `getWorksheetCount(): number` - Get number of worksheets
+- `deleteSheet(name: string): void` - Delete a worksheet by name
+- `updateSheetName(oldName: string, newName: string): void` - Rename a worksheet and rewrite formula references to it
+- `clone(existingName: string, newName: string): XlsxWorksheet` - Copy a worksheet
 - `addCellFormat(): XlsxCellFormat` - Add a new cell format
 - `getBuffer(): Promise<ArrayBuffer>` - Generate and return the XLSX file as a buffer
-- `toJSON(keys?: string[]): Array<Record<string, string | number>>` - Convert worksheet data to a JSON array
+- `toJSON(): Record<string, Array<Record<string, string | number | boolean | null>>>` - Export every worksheet as a `Record` keyed by sheet name
 
 ### XlsxWorksheet
 
@@ -209,7 +237,7 @@ const buffer = await workbook.getBuffer();
 #### Date/URL
 | Method | Description |
 |--------|-------------|
-| `writeDatetime(row, col, datetime, format?)` | Write a datetime (Excel serial date number) |
+| `writeDatetime(row, col, datetime, format?)` | Write a datetime (1900-based Excel serial date number; see Cell Types) |
 | `writeURL(row, col, url, format?)` | Write a hyperlink |
 
 #### Column/Row
@@ -217,6 +245,8 @@ const buffer = await workbook.getBuffer();
 |--------|-------------|
 | `setColumn(firstCol, lastCol, width, format?)` | Set column properties |
 | `setRow(row, height, format?)` | Set row properties |
+| `deleteRow(row)` | Delete a row (returns `true` if a row entry existed and was removed) |
+| `deleteColumn(col)` | Delete a column and shift remaining columns left (returns `true` on success) |
 | `setColumnHidden(firstCol, lastCol, hidden)` | Hide/show columns |
 | `setRowHidden(row, hidden)` | Hide/show row |
 
@@ -225,38 +255,75 @@ const buffer = await workbook.getBuffer();
 |--------|-------------|
 | `mergeRange(firstRow, firstCol, lastRow, lastCol, value, format?)` | Merge cells with string value |
 | `mergeRangeNum(firstRow, firstCol, lastRow, lastCol, value, format?)` | Merge cells with number value |
+| `unmergeCells(firstRow, firstCol, lastRow, lastCol)` | Unmerge a previously merged range |
 
-#### Image
+#### Comments
 | Method | Description |
 |--------|-------------|
-| `insertImage(row, col, path, xOffset?, yOffset?, xScale?, yScale?)` | Insert image from file |
-| `insertImageBuffer(row, col, buffer, extension, xOffset?, yOffset?, xScale?, yScale?)` | Insert image from buffer |
+| `setComment(row, col, text, authorId?)` | Set a cell comment (creates the comments part on first use) |
+| `getComment(row, col)` | Get comment text (empty string if none) |
+| `hasComment(row, col)` | Whether the cell has a comment |
+| `deleteComment(row, col)` | Delete a cell comment (returns `true` if one existed) |
+| `getCommentCount()` | Number of comments on this sheet |
+| `addCommentAuthor(author)` | Register an author, returns its `authorId` |
+| `getCommentAuthor(authorId)` | Get author name by id |
 
 #### View
+
 | Method | Description |
 |--------|-------------|
-| `freezePanes(row, col)` | Freeze panes |
-| `splitPanes(row, col)` | Split panes |
-| `setTabColor(color)` | Set tab color |
 | `hide()` | Hide worksheet |
 | `activate()` | Activate worksheet |
-| `setFirstSheet()` | Set as first sheet |
-| `protect(password?)` | Protect worksheet |
 
-#### Page Setup
+#### Sheet Protection
 | Method | Description |
 |--------|-------------|
-| `setPortrait()` | Set portrait orientation |
-| `setLandscape()` | Set landscape orientation |
-| `setPaper(paperType)` | Set paper size |
-| `setHeader(header)` | Set header |
-| `setFooter(footer)` | Set footer |
-| `setPrintArea(firstRow, firstCol, lastRow, lastCol)` | Set print area |
-| `fitToPages(width, height)` | Fit to pages |
-| `setZoom(scale)` | Set zoom level |
-| `setGridlines(option)` | Set gridlines |
-| `centerHorizontally()` | Center horizontally |
-| `centerVertically()` | Center vertically |
+| `protect(password?)` | Convenience: set optional password and enable sheet protection |
+| `protectSheet(set?)` | Enable/disable sheet protection (`set` defaults to `true`) |
+| `protectObjects(set?)` | Protect drawing objects |
+| `protectScenarios(set?)` | Protect scenarios |
+| `setPassword(password)` | Set password (hashed by Excel algorithm) |
+| `setPasswordHash(hash)` | Set a pre-computed 4-digit hex password hash |
+| `clearPassword()` | Remove the password attribute |
+| `clearSheetProtection()` | Remove `<sheetProtection>` entirely |
+
+Fine-grained permissions (only meaningful while `protectSheet` is on).
+`allow*(set?)` defaults to `true`; `deny*()` is shorthand for `allow*(false)`.
+
+| Allow | Deny | Effect when allowed |
+|-------|------|---------------------|
+| `allowInsertColumns(set?)` | `denyInsertColumns()` | User may insert columns |
+| `allowInsertRows(set?)` | `denyInsertRows()` | User may insert rows |
+| `allowDeleteColumns(set?)` | `denyDeleteColumns()` | User may delete columns |
+| `allowDeleteRows(set?)` | `denyDeleteRows()` | User may delete rows |
+| `allowSelectLockedCells(set?)` | `denySelectLockedCells()` | User may select locked cells |
+| `allowSelectUnlockedCells(set?)` | `denySelectUnlockedCells()` | User may select unlocked cells |
+
+Protection state getters:
+
+| Method | Returns |
+|--------|---------|
+| `sheetProtected()` / `objectsProtected()` / `scenariosProtected()` | Whether the corresponding protection is on |
+| `insertColumnsAllowed()` / `insertRowsAllowed()` | Whether insert is allowed despite protection |
+| `deleteColumnsAllowed()` / `deleteRowsAllowed()` | Whether delete is allowed despite protection |
+| `selectLockedCellsAllowed()` / `selectUnlockedCellsAllowed()` | Whether select is allowed despite protection |
+| `passwordIsSet()` | Whether a password hash is present |
+| `passwordHash()` | The stored password hash (empty if none) |
+| `sheetProtectionSummary()` | Human-readable summary of the protection settings |
+
+Example:
+
+```typescript
+const sheet = workbook.addWorksheet('Locked');
+sheet.writeString(1, 1, 'Protected');
+sheet.setPassword('s3cret');
+sheet.protectSheet();
+sheet.allowDeleteRows();       // users may still delete rows
+sheet.denySelectLockedCells(); // users cannot select locked cells
+console.log(sheet.sheetProtected());           // true
+console.log(sheet.deleteRowsAllowed());        // true
+console.log(sheet.selectLockedCellsAllowed()); // false
+```
 
 #### Read Methods
 | Method | Description |
@@ -266,11 +333,62 @@ const buffer = await workbook.getBuffer();
 | `getCellRawValue(row, col)` | Get raw cell value |
 | `getCellType(row, col)` | Get cell type |
 | `getCellFormat(row, col)` | Get cell format |
+| `hasFormula(row, col)` | Whether the cell contains a formula |
+| `formula(row, col)` | Get the cell's formula string (empty if none) |
+| `findCell(row, col)` | Whether a cell exists at these coordinates (does **not** create it) |
 | `getRowCount()` | Get total row count |
 | `getColumnCount()` | Get total column count |
 | `getLastRow()` | Get last row index |
 | `getLastColumn()` | Get last column index |
 | `getName()` | Get worksheet name |
+| `toJSON(keys?)` | Export this worksheet as an array of records (`keys` defaults to first-row headers) |
+| `fromJSON(data)` | Write an array of records into this worksheet (first row = header) |
+
+#### Conditional Formatting
+| Method | Description |
+|--------|-------------|
+| `getConditionalFormats()` | Get the worksheet's `XlsxConditionalFormats` collection |
+
+##### XlsxConditionalFormats
+| Method | Description |
+|--------|-------------|
+| `getCount()` | Number of `<conditionalFormatting>` entries |
+| `create(sqref)` | Create a new entry for a range (e.g. `"A1:A10"`), returns `XlsxConditionalFormat` |
+| `getByIndex(index)` | Get an entry by index |
+| `summary()` | Debug summary string |
+
+##### XlsxConditionalFormat
+| Method | Description |
+|--------|-------------|
+| `getSqref()` / `setSqref(sqref)` | The range these rules apply to |
+| `getRuleCount()` / `createRule()` | Manage `cfRule` entries (`createRule` returns the new index) |
+| `getRuleType(index)` / `setRuleType(index, type)` | Rule type — use `CfType` constants |
+| `getRuleDxfId(index)` / `setRuleDxfId(index, dxfId)` | Differential format id |
+| `getRuleFormula(index, formulaIndex)` / `setRuleFormula(index, formulaIndex, formula)` | Rule formula (`formulaIndex` must be `0`; OpenXLSX supports one formula per rule) |
+| `getRuleOperator(index)` / `setRuleOperator(index, op)` | Comparison operator — use `CfOperator` |
+| `getRuleText(index)` / `setRuleText(index, text)` | Text for text-based rules |
+| `getRulePriority(index)` / `setRulePriority(index, priority)` | Rule priority (1-based) |
+| `getRuleStopIfTrue(index)` / `setRuleStopIfTrue(index, stop)` | Stop evaluating further rules |
+| `getRuleTimePeriod(index)` / `setRuleTimePeriod(index, period)` | Time period — use `CfTimePeriod` |
+| `getRuleRank(index)` / `setRuleRank(index, rank)` | Top/bottom N |
+| `getRuleStdDev(index)` / `setRuleStdDev(index, stdDev)` | Standard deviations for aboveAverage |
+| `getRuleAboveAverage` / `setRuleAboveAverage` | aboveAverage flag |
+| `getRulePercent` / `setRulePercent` | percent flag |
+| `getRuleBottom` / `setRuleBottom` | bottom flag |
+| `getRuleEqualAverage` / `setRuleEqualAverage` | equalAverage flag |
+| `summary()` | Debug summary string |
+
+Example:
+
+```typescript
+const cf = sheet.getConditionalFormats().create('B2:B100');
+const ruleIndex = cf.createRule();
+cf.setRuleType(ruleIndex, CfType.CELL_IS);
+cf.setRuleOperator(ruleIndex, CfOperator.GREATER_THAN);
+cf.setRuleFormula(ruleIndex, 0, '100');
+cf.setRuleDxfId(ruleIndex, 0);
+cf.setRulePriority(ruleIndex, 1);
+```
 
 ### XlsxCellFormat
 
@@ -320,9 +438,14 @@ When reading cells, the following types are returned:
 
 - `empty` - Empty cell
 - `string` - Text string
-- `number` - Numeric value
+- `number` - Numeric value. Dates are stored as **Excel serial numbers in the 1900 date system** (days since `1900-01-01`, where `1900-01-01` = `1`, including the spurious `1900-02-29`), and are read back as `number`:
+  ```ts
+  // Excel serial (1900-based) → JS Date
+  const date = new Date(Math.round((serial - 25569) * 86400000));
+  // JS Date → Excel serial (1900-based)
+  const serial = date.getTime() / 86400000 + 25569;
+  ```
 - `boolean` - Boolean value
-- `date` - Date/time value
 - `error` - Error value
 - `formula` - Formula
 - `blank` - Blank cell
@@ -341,7 +464,43 @@ The library exports several useful constants:
 - `Gridlines` - Gridline options
 - `Colors` - Common RGB colors
 - `NumFormat` - Built-in number format indices
-- `ImagePosition` - Image positioning options
+- `CfType` - Conditional formatting rule types
+- `CfOperator` - Conditional formatting comparison operators
+- `CfTimePeriod` - Conditional formatting time periods
+- `XlsxErrorCode` - Native error codes
+
+## Error Handling
+
+Native failures are thrown as JS `Error`s whose message is `methodName: CODE: detail`.
+Convert them to a structured `XlsxError` with `XlsxError.from`:
+
+```typescript
+import { NitroXlsx, XlsxError, XlsxErrorCode } from 'react-native-nitro-xlsx';
+
+try {
+  workbook.deleteSheet('Missing');
+} catch (e) {
+  const err = XlsxError.from(e);
+  if (err.code === XlsxErrorCode.SHEET_NOT_FOUND) {
+    // handle missing sheet
+  }
+}
+```
+
+Error codes:
+
+| Code | Meaning |
+|------|---------|
+| `INVALID_ARGUMENT` | Bad row/col/name or other input |
+| `SHEET_NOT_FOUND` | Worksheet does not exist |
+| `SHEET_EXISTS` | Worksheet name already taken |
+| `INDEX_OUT_OF_RANGE` | Row/col/index out of range |
+| `CELL_NOT_FOUND` | Referenced cell does not exist |
+| `WORKBOOK_CLOSED` | Workbook already finalized via `getBuffer()` |
+| `IO_ERROR` | File open/save failure |
+| `UNSUPPORTED` | Operation not supported by the underlying engine |
+| `XLSX_ERROR` | Generic OpenXLSX failure |
+| `INTERNAL_ERROR` | Unexpected native error |
 
 ## Development
 
@@ -373,17 +532,20 @@ This library is based on OpenXLSX and inherits the following limitations:
 
 The following Excel features are not supported and will be ignored when reading or writing files:
 
-- 🖼️ **Images**: Reading and writing images is not supported. Existing images in XLSX files will be ignored.
 - 📊 **Charts**: Charts, graphs, and sparklines are not supported.
-- ✏️ **Drawings/Shape**: Shapes, lines, arrows, and other drawing objects are not supported.
+- 🖼️ **Drawings/Images/Shapes**: Images, shapes, lines, arrows and other drawing objects fall under OpenXLSX's drawing support, which is not implemented. Existing images in XLSX files are silently ignored.
 - 🔍 **Pivot Tables**: Pivot tables and pivot charts are not supported.
 - 💻 **VBA/Macros**: VBA macros, forms, and ActiveX controls are not supported.
-- 📋 **Comments**: Cell comments and notes are not supported.
 - 📌 **Hyperlinks**: Only basic URL hyperlinks are supported.
-- 🔄 **Conditional Formatting**: Conditional formatting rules are not supported.
 - 📑 **Data Validation**: Data validation rules are not supported.
 
 ### Notes
 
 - When reading XLSX files that contain unsupported features, the library will still read the cell data and formatting, but unsupported elements will be silently ignored.
 - When writing XLSX files, unsupported features cannot be added and will be omitted from the output.
+- `deleteColumn` shifts cell values and formats left; formula references are not rewritten (same limitation as OpenXLSX's `deleteRow`).
+- Conditional formatting supports one formula per `cfRule` (OpenXLSX limitation). `colorScale` / `dataBar` / `iconSet` are not supported.
+- `deleteRule` on `XlsxConditionalFormat` always returns `false` (OpenXLSX does not support removing a `cfRule`).
+- Conditional formatting rule `type` / `operator` / `timePeriod` are direct numeric mappings of OpenXLSX enums; passing an out-of-range value results in undefined behavior. Use the exported `CfType` / `CfOperator` / `CfTimePeriod` constants.
+- `setComment` automatically registers an author so the generated `comments.xml` always has a valid `authorId` (verified to open cleanly in Excel/WPS).
+- `getComment` returns an empty string for a cell without a comment (it does not throw). Use `hasComment` first if you need to distinguish.

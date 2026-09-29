@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-xlsx",
-  "version": "0.1.4",
+  "version": "0.2.5",
   "description": "Fast XLSX file reading and writing for React Native using OpenXLSX and Nitro Modules",
   "license": "MIT",
   "homepage": "https://github.com/zydbkqf/react-native-nitro-xlsx",
@@ -13,7 +13,7 @@
     "postinstall": "node scripts/prepare-openxlsx.js",
     "specs": "nitrogen",
     "test": "jest",
-    "test:cpp": "cd cpp/tests && [ -n \"$OPENXLSX_PATH\" ] || OPENXLSX_PATH=$HOME/OpenXLSX; cmake -B build -DOPENXLSX_PATH=$OPENXLSX_PATH && cmake --build build && cd build && ctest --output-on-failure",
+    "test:cpp": "bash scripts/run-cpp-tests.sh",
     "test:cpp:clean": "rm -rf cpp/tests/build"
   },
   "peerDependencies": {

@@ -21,6 +21,7 @@ Pod::Spec.new do |s|
 
   s.source_files = [
     "cpp/**/*.{h,hpp,cpp}",
+    "ios/**/*.{h,hpp,mm}",
     "OpenXLSX/OpenXLSX/**/*.hpp",
     "OpenXLSX/OpenXLSX/**/*.cpp",
     "OpenXLSX/ThirdParty/pugixml/src/**/*.hpp",

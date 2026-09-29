@@ -19,8 +19,10 @@ namespace margelo::nitro::xlsx { class HybridXlsxWorkbookSpec; }
 #include <memory>
 #include "HybridXlsxWorkbookSpec.hpp"
 #include <string>
-#include <optional>
 #include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/AnyMap.hpp>
+#include <vector>
+#include <unordered_map>
 
 namespace margelo::nitro::xlsx {
 
@@ -53,10 +55,10 @@ namespace margelo::nitro::xlsx {
 
     public:
       // Methods
-      virtual std::shared_ptr<HybridXlsxWorkbookSpec> createWorkbook(const std::optional<std::string>& tempDir) = 0;
+      virtual std::shared_ptr<HybridXlsxWorkbookSpec> createWorkbook() = 0;
       virtual std::shared_ptr<HybridXlsxWorkbookSpec> openWorkbook(const std::string& path) = 0;
       virtual std::shared_ptr<HybridXlsxWorkbookSpec> openWorkbookFromBuffer(const std::shared_ptr<ArrayBuffer>& buffer) = 0;
-      virtual std::shared_ptr<HybridXlsxWorkbookSpec> fromJSON(const std::string& data) = 0;
+      virtual std::shared_ptr<HybridXlsxWorkbookSpec> fromJSON(const std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>>& data) = 0;
 
     protected:
       // Hybrid Setup

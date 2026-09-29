@@ -35,6 +35,8 @@ target_sources(
   # Shared Nitrogen C++ sources
   ../nitrogen/generated/shared/c++/HybridXlsxWorkbookSpec.cpp
   ../nitrogen/generated/shared/c++/HybridXlsxWorksheetSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridXlsxConditionalFormatSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridXlsxConditionalFormatsSpec.cpp
   ../nitrogen/generated/shared/c++/HybridXlsxCellFormatSpec.cpp
   ../nitrogen/generated/shared/c++/HybridNitroXlsxSpec.cpp
   # Android-specific Nitrogen C++ sources

@@ -14,7 +14,12 @@ set(OPENXLSX_PATH "" CACHE PATH "Path to local OpenXLSX source")
 if(OPENXLSX_PATH AND EXISTS "${OPENXLSX_PATH}/CMakeLists.txt")
   message(STATUS "Using local OpenXLSX from: ${OPENXLSX_PATH}")
   set(OpenXLSX_SOURCE_DIR "${OPENXLSX_PATH}" CACHE PATH "OpenXLSX source directory")
-  add_subdirectory(${OpenXLSX_PATH} ${CMAKE_BINARY_DIR}/_deps/openxlsx-build)
+  set(OPENXLSX_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+  set(OPENXLSX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(OPENXLSX_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+  set(OPENXLSX_CREATE_DOCS OFF CACHE BOOL "" FORCE)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  add_subdirectory(${OPENXLSX_PATH} openxlsx-build)
 else()
   FetchContent_Declare(
     OpenXLSX
@@ -55,17 +60,31 @@ find_library(GTEST_MAIN_LIBRARY
   NO_DEFAULT_PATH
 )
 
-set(NITRO_XLSX_TEST_SOURCES
-  test_HybridXlsxFormat.cpp
-  test_HybridXlsxWorksheet.cpp
-  test_HybridXlsxWorkbook.cpp
-)
+set(NITRO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../node_modules/react-native-nitro-modules")
+set(NITRO_CORE_DIR "${NITRO_ROOT}/cpp/core")
+set(NITRO_UTILS_DIR "${NITRO_ROOT}/cpp/utils")
+
+# Shim so `#include <NitroModules/AnyMap.hpp>` resolves in the test build
+set(NITRO_INC_SHIM "${CMAKE_CURRENT_BINARY_DIR}/nitro_inc")
+file(MAKE_DIRECTORY "${NITRO_INC_SHIM}/NitroModules")
+foreach(hdr "AnyMap.hpp:${NITRO_CORE_DIR}/AnyMap.hpp" "Null.hpp:${NITRO_CORE_DIR}/Null.hpp" "NitroDefines.hpp:${NITRO_UTILS_DIR}/NitroDefines.hpp")
+  string(REPLACE ":" ";" parts "${hdr}")
+  list(GET parts 0 name)
+  list(GET parts 1 src)
+  set(dst "${NITRO_INC_SHIM}/NitroModules/${name}")
+  if(NOT EXISTS "${dst}")
+    file(CREATE_LINK "${src}" "${dst}" SYMBOLIC)
+  endif()
+endforeach()
 
 set(NITRO_XLSX_TEST_SOURCES
   test_HybridXlsxFormat.cpp
   test_HybridXlsxWorksheet.cpp
   test_HybridXlsxWorkbook.cpp
+  test_HybridXlsxJson.cpp
   test_main.cpp
+  ../XlsxJson.cpp
+  ${NITRO_CORE_DIR}/AnyMap.cpp
 )
 
 # Enable testing
@@ -76,12 +95,21 @@ add_executable(NitroXlsxTests
   ${NITRO_XLSX_TEST_SOURCES}
 )
 
+set(NITRO_XLSX_TEST_INCLUDES
+  .
+  ..
+  ${OpenXLSX_SOURCE_DIR}
+  ${OpenXLSX_SOURCE_DIR}/OpenXLSX/headers
+  ${NITRO_INC_SHIM}
+  ${NITRO_CORE_DIR}
+  ${NITRO_UTILS_DIR}
+)
+
 if(GTEST_INCLUDE_DIR AND GTEST_LIBRARY AND GTEST_MAIN_LIBRARY)
   message(STATUS "Using local GoogleTest: ${GTEST_LIBRARY}")
   target_include_directories(NitroXlsxTests
     PRIVATE
-      .
-      ${OpenXLSX_SOURCE_DIR}
+      ${NITRO_XLSX_TEST_INCLUDES}
       ${GTEST_INCLUDE_DIR}
   )
   target_link_libraries(NitroXlsxTests
@@ -104,8 +132,7 @@ else()
 
   target_include_directories(NitroXlsxTests
     PRIVATE
-      .
-      ${OpenXLSX_SOURCE_DIR}
+      ${NITRO_XLSX_TEST_INCLUDES}
       ${gtest_SOURCE_DIR}/include
   )
   target_link_libraries(NitroXlsxTests

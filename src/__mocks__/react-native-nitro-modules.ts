@@ -24,5 +24,6 @@ export const NitroModules = {
     createWorkbook: jest.fn(),
     openWorkbook: jest.fn(),
     openWorkbookFromBuffer: jest.fn(),
+    fromJSON: jest.fn(),
   }),
 };

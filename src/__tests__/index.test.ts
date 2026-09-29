@@ -10,7 +10,11 @@ import {
   Gridlines,
   Colors,
   NumFormat,
-  ImagePosition,
+  XlsxError,
+  XlsxErrorCode,
+  CfType,
+  CfOperator,
+  CfTimePeriod,
 } from '../index';
 
 describe('NitroXlsx', () => {
@@ -32,6 +36,14 @@ describe('NitroXlsx', () => {
   it('should have openWorkbookFromBuffer method', () => {
     expect(NitroXlsx.openWorkbookFromBuffer).toBeDefined();
     expect(typeof NitroXlsx.openWorkbookFromBuffer).toBe('function');
+  });
+
+  it('should have fromJSON method that accepts a Record of sheet rows', () => {
+    expect(NitroXlsx.fromJSON).toBeDefined();
+    expect(typeof NitroXlsx.fromJSON).toBe('function');
+    expect(() =>
+      NitroXlsx.fromJSON({ Sheet1: [{ Name: 'Alice', Age: 30 }] })
+    ).not.toThrow();
   });
 });
 
@@ -130,12 +142,69 @@ describe('Constants', () => {
     });
   });
 
-  describe('ImagePosition', () => {
-    it('should export ImagePosition constants', () => {
-      expect(ImagePosition).toBeDefined();
-      expect(ImagePosition.MOVE_AND_SIZE).toBe(1);
-      expect(ImagePosition.MOVE_DONT_SIZE).toBe(2);
-      expect(ImagePosition.DONT_MOVE_DONT_SIZE).toBe(3);
+  describe('CfType', () => {
+    it('should export CfType constants', () => {
+      expect(CfType).toBeDefined();
+      expect(CfType.EXPRESSION).toBe(0);
+      expect(CfType.CELL_IS).toBe(1);
+      expect(CfType.TOP10).toBe(5);
+      expect(CfType.CONTAINS_TEXT).toBe(8);
+      expect(CfType.TIME_PERIOD).toBe(16);
     });
+  });
+
+  describe('CfOperator', () => {
+    it('should export CfOperator constants', () => {
+      expect(CfOperator).toBeDefined();
+      expect(CfOperator.LESS_THAN).toBe(0);
+      expect(CfOperator.EQUAL).toBe(2);
+      expect(CfOperator.GREATER_THAN).toBe(5);
+      expect(CfOperator.BETWEEN).toBe(6);
+    });
+  });
+
+  describe('CfTimePeriod', () => {
+    it('should export CfTimePeriod constants', () => {
+      expect(CfTimePeriod).toBeDefined();
+      expect(CfTimePeriod.TODAY).toBe(0);
+      expect(CfTimePeriod.YESTERDAY).toBe(1);
+      expect(CfTimePeriod.THIS_WEEK).toBe(7);
+    });
+  });
+});
+
+describe('XlsxError', () => {
+  it('should export XlsxErrorCode constants', () => {
+    expect(XlsxErrorCode.INVALID_ARGUMENT).toBe('INVALID_ARGUMENT');
+    expect(XlsxErrorCode.SHEET_NOT_FOUND).toBe('SHEET_NOT_FOUND');
+    expect(XlsxErrorCode.INDEX_OUT_OF_RANGE).toBe('INDEX_OUT_OF_RANGE');
+    expect(XlsxErrorCode.UNSUPPORTED).toBe('UNSUPPORTED');
+    expect(XlsxErrorCode.XLSX_ERROR).toBe('XLSX_ERROR');
+  });
+
+  it('should create XlsxError with code and message', () => {
+    const err = new XlsxError(XlsxErrorCode.SHEET_NOT_FOUND, 'Sheet missing');
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('XlsxError');
+    expect(err.code).toBe('SHEET_NOT_FOUND');
+    expect(err.message).toContain('SHEET_NOT_FOUND');
+    expect(err.message).toContain('Sheet missing');
+  });
+
+  it('should parse native error message into XlsxError', () => {
+    const native = new Error('deleteSheet: SHEET_NOT_FOUND: Worksheet not found: Foo');
+    const err = XlsxError.from(native);
+    expect(err.code).toBe('SHEET_NOT_FOUND');
+    expect(err.message).toContain('Worksheet not found: Foo');
+  });
+
+  it('should wrap unknown errors with INTERNAL_ERROR', () => {
+    const err = XlsxError.from(new Error('something odd'));
+    expect(err.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('should return the same instance if already XlsxError', () => {
+    const original = new XlsxError(XlsxErrorCode.IO_ERROR, 'disk');
+    expect(XlsxError.from(original)).toBe(original);
   });
 });

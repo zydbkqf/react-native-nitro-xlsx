@@ -1,21 +1,117 @@
 import { NitroModules } from 'react-native-nitro-modules'
-import type { NitroXlsx as NitroXlsxSpec, XlsxWorkbook as XlsxWorkbookSpec } from './specs/NitroXlsx.nitro'
+import type {
+  NitroXlsx as NitroXlsxSpec
+} from './specs/NitroXlsx.nitro'
 
-const NitroXlsxBridge = NitroModules.createHybridObject<NitroXlsxSpec>('NitroXlsx')
+export const NitroXlsx = NitroModules.createHybridObject<NitroXlsxSpec>('NitroXlsx')
 
-type JsonRecord = Record<string, string | number>
+export type {
+  XlsxWorkbook,
+  XlsxWorksheet,
+  XlsxCellFormat,
+  XlsxConditionalFormat,
+  XlsxConditionalFormats,
+  CellType,
+} from './specs/NitroXlsx.nitro'
 
-export const NitroXlsx = Object.assign(NitroXlsxBridge, {
-  fromJSON(data: JsonRecord[]): XlsxWorkbookSpec {
-    return NitroXlsxBridge.fromJSON(JSON.stringify(data))
-  },
-})
+/**
+ * Error codes emitted by the native layer.
+ * Native errors arrive as `Error` with message `methodName: CODE: detail`.
+ */
+export const XlsxErrorCode = {
+  INVALID_ARGUMENT: 'INVALID_ARGUMENT',
+  SHEET_NOT_FOUND: 'SHEET_NOT_FOUND',
+  SHEET_EXISTS: 'SHEET_EXISTS',
+  INDEX_OUT_OF_RANGE: 'INDEX_OUT_OF_RANGE',
+  CELL_NOT_FOUND: 'CELL_NOT_FOUND',
+  WORKBOOK_CLOSED: 'WORKBOOK_CLOSED',
+  IO_ERROR: 'IO_ERROR',
+  UNSUPPORTED: 'UNSUPPORTED',
+  XLSX_ERROR: 'XLSX_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const
 
-export function toJSON(workbook: XlsxWorkbookSpec, keys?: string[]): JsonRecord[] {
-  return JSON.parse(workbook.toJSON(keys))
+export type XlsxErrorCode = (typeof XlsxErrorCode)[keyof typeof XlsxErrorCode]
+
+/**
+ * Structured XLSX error. Use `XlsxError.from(caught)` to convert a native throw.
+ */
+export class XlsxError extends Error {
+  readonly code: XlsxErrorCode | string
+
+  constructor(code: XlsxErrorCode | string, message: string) {
+    super(`[${code}] ${message}`)
+    this.name = 'XlsxError'
+    this.code = code
+  }
+
+  /**
+   * Convert an error thrown by the native module into an XlsxError.
+   * Non-XLSX errors are wrapped with code INTERNAL_ERROR.
+   */
+  static from(error: unknown): XlsxError {
+    if (error instanceof XlsxError) return error
+    const message = error instanceof Error ? error.message : String(error)
+    // Nitro prefixes "methodName: " then our "CODE: detail"
+    const match = message.match(/(?:^|:\s*)([A-Z_]+):\s*(.*)$/)
+    if (match && match[1] && (Object.values(XlsxErrorCode) as string[]).includes(match[1])) {
+      return new XlsxError(match[1], match[2] ?? '')
+    }
+    return new XlsxError(XlsxErrorCode.INTERNAL_ERROR, message)
+  }
 }
 
-export type { XlsxWorkbook, XlsxWorksheet, XlsxCellFormat } from './specs/NitroXlsx.nitro'
+// Conditional formatting rule types (OpenXLSX XLCfType)
+export const CfType = {
+  EXPRESSION: 0,
+  CELL_IS: 1,
+  COLOR_SCALE: 2,
+  DATA_BAR: 3,
+  ICON_SET: 4,
+  TOP10: 5,
+  UNIQUE_VALUES: 6,
+  DUPLICATE_VALUES: 7,
+  CONTAINS_TEXT: 8,
+  NOT_CONTAINS_TEXT: 9,
+  BEGINS_WITH: 10,
+  ENDS_WITH: 11,
+  CONTAINS_BLANKS: 12,
+  NOT_CONTAINS_BLANKS: 13,
+  CONTAINS_ERRORS: 14,
+  NOT_CONTAINS_ERRORS: 15,
+  TIME_PERIOD: 16,
+  ABOVE_AVERAGE: 17,
+} as const
+
+// Conditional formatting operators (OpenXLSX XLCfOperator)
+export const CfOperator = {
+  LESS_THAN: 0,
+  LESS_THAN_OR_EQUAL: 1,
+  EQUAL: 2,
+  NOT_EQUAL: 3,
+  GREATER_THAN_OR_EQUAL: 4,
+  GREATER_THAN: 5,
+  BETWEEN: 6,
+  NOT_BETWEEN: 7,
+  CONTAINS_TEXT: 8,
+  NOT_CONTAINS: 9,
+  BEGINS_WITH: 10,
+  ENDS_WITH: 11,
+} as const
+
+// Conditional formatting time periods (OpenXLSX XLCfTimePeriod)
+export const CfTimePeriod = {
+  TODAY: 0,
+  YESTERDAY: 1,
+  TOMORROW: 2,
+  LAST_7_DAYS: 3,
+  THIS_MONTH: 4,
+  LAST_MONTH: 5,
+  NEXT_MONTH: 6,
+  THIS_WEEK: 7,
+  LAST_WEEK: 8,
+  NEXT_WEEK: 9,
+} as const
 
 // Cell alignment (based on OpenXLSX XLAlignmentStyle)
 export const Align = {
@@ -197,11 +293,4 @@ export const NumFormat = {
   TIME_4: 23,
   DATETIME: 22,
   TEXT: 49,
-} as const
-
-// Image object position
-export const ImagePosition = {
-  MOVE_AND_SIZE: 1,
-  MOVE_DONT_SIZE: 2,
-  DONT_MOVE_DONT_SIZE: 3,
 } as const

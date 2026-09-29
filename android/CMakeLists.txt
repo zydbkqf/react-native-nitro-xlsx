@@ -47,6 +47,10 @@ add_library(
   ../cpp/HybridXlsxWorkbook.cpp
   ../cpp/HybridXlsxWorksheet.cpp
   ../cpp/HybridXlsxCellFormat.cpp
+  ../cpp/HybridXlsxConditionalFormat.cpp
+  ../cpp/HybridXlsxConditionalFormats.cpp
+  ../cpp/XlsxJson.cpp
+  ../cpp/XlsxCacheDir.cpp
   cpp-adapter.cpp
 )
 

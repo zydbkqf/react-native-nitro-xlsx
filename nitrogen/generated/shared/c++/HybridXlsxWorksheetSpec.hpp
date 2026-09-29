@@ -15,6 +15,8 @@
 
 // Forward declaration of `HybridXlsxCellFormatSpec` to properly resolve imports.
 namespace margelo::nitro::xlsx { class HybridXlsxCellFormatSpec; }
+// Forward declaration of `HybridXlsxConditionalFormatsSpec` to properly resolve imports.
+namespace margelo::nitro::xlsx { class HybridXlsxConditionalFormatsSpec; }
 // Forward declaration of `CellType` to properly resolve imports.
 namespace margelo::nitro::xlsx { enum class CellType; }
 
@@ -22,10 +24,12 @@ namespace margelo::nitro::xlsx { enum class CellType; }
 #include <memory>
 #include "HybridXlsxCellFormatSpec.hpp"
 #include <optional>
-#include <NitroModules/ArrayBuffer.hpp>
+#include "HybridXlsxConditionalFormatsSpec.hpp"
 #include <NitroModules/Null.hpp>
 #include <variant>
 #include "CellType.hpp"
+#include <NitroModules/AnyMap.hpp>
+#include <vector>
 
 namespace margelo::nitro::xlsx {
 
@@ -71,42 +75,70 @@ namespace margelo::nitro::xlsx {
       virtual void writeURL(double row, double col, const std::string& url, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
       virtual void setColumn(double firstCol, double lastCol, double width, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
       virtual void setRow(double row, double height, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
+      virtual bool deleteRow(double row) = 0;
+      virtual bool deleteColumn(double col) = 0;
       virtual void mergeRange(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
       virtual void mergeRangeNum(double firstRow, double firstCol, double lastRow, double lastCol, double value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) = 0;
-      virtual void insertImage(double row, double col, const std::string& path, std::optional<double> xOffset, std::optional<double> yOffset, std::optional<double> xScale, std::optional<double> yScale) = 0;
-      virtual void insertImageBuffer(double row, double col, const std::shared_ptr<ArrayBuffer>& buffer, const std::string& extension, std::optional<double> xOffset, std::optional<double> yOffset, std::optional<double> xScale, std::optional<double> yScale) = 0;
-      virtual void autofilter(double firstRow, double firstCol, double lastRow, double lastCol) = 0;
-      virtual void freezePanes(double row, double col) = 0;
-      virtual void splitPanes(double row, double col) = 0;
-      virtual void setTabColor(double color) = 0;
+      virtual void unmergeCells(double firstRow, double firstCol, double lastRow, double lastCol) = 0;
       virtual void hide() = 0;
       virtual void activate() = 0;
-      virtual void setFirstSheet() = 0;
       virtual void protect(const std::optional<std::string>& password) = 0;
-      virtual void setPortrait() = 0;
-      virtual void setLandscape() = 0;
-      virtual void setPaper(double paperType) = 0;
-      virtual void setHeader(const std::string& header) = 0;
-      virtual void setFooter(const std::string& footer) = 0;
-      virtual void setPrintArea(double firstRow, double firstCol, double lastRow, double lastCol) = 0;
-      virtual void fitToPages(double width, double height) = 0;
-      virtual void setZoom(double scale) = 0;
-      virtual void setGridlines(double option) = 0;
-      virtual void centerHorizontally() = 0;
-      virtual void centerVertically() = 0;
-      virtual void setOutline(double level) = 0;
+      virtual void protectSheet(std::optional<bool> set) = 0;
+      virtual void protectObjects(std::optional<bool> set) = 0;
+      virtual void protectScenarios(std::optional<bool> set) = 0;
+      virtual void setPassword(const std::string& password) = 0;
+      virtual void setPasswordHash(const std::string& hash) = 0;
+      virtual void clearPassword() = 0;
+      virtual void clearSheetProtection() = 0;
+      virtual void allowInsertColumns(std::optional<bool> set) = 0;
+      virtual void allowInsertRows(std::optional<bool> set) = 0;
+      virtual void allowDeleteColumns(std::optional<bool> set) = 0;
+      virtual void allowDeleteRows(std::optional<bool> set) = 0;
+      virtual void allowSelectLockedCells(std::optional<bool> set) = 0;
+      virtual void allowSelectUnlockedCells(std::optional<bool> set) = 0;
+      virtual void denyInsertColumns() = 0;
+      virtual void denyInsertRows() = 0;
+      virtual void denyDeleteColumns() = 0;
+      virtual void denyDeleteRows() = 0;
+      virtual void denySelectLockedCells() = 0;
+      virtual void denySelectUnlockedCells() = 0;
+      virtual bool sheetProtected() = 0;
+      virtual bool objectsProtected() = 0;
+      virtual bool scenariosProtected() = 0;
+      virtual bool insertColumnsAllowed() = 0;
+      virtual bool insertRowsAllowed() = 0;
+      virtual bool deleteColumnsAllowed() = 0;
+      virtual bool deleteRowsAllowed() = 0;
+      virtual bool selectLockedCellsAllowed() = 0;
+      virtual bool selectUnlockedCellsAllowed() = 0;
+      virtual bool passwordIsSet() = 0;
+      virtual std::string passwordHash() = 0;
+      virtual std::string sheetProtectionSummary() = 0;
       virtual void setColumnHidden(double firstCol, double lastCol, bool hidden) = 0;
       virtual void setRowHidden(double row, bool hidden) = 0;
+      virtual void setComment(double row, double col, const std::string& text, std::optional<double> authorId) = 0;
+      virtual std::string getComment(double row, double col) = 0;
+      virtual bool hasComment(double row, double col) = 0;
+      virtual bool deleteComment(double row, double col) = 0;
+      virtual double getCommentCount() = 0;
+      virtual double addCommentAuthor(const std::string& author) = 0;
+      virtual std::string getCommentAuthor(double authorId) = 0;
+      virtual std::shared_ptr<HybridXlsxConditionalFormatsSpec> getConditionalFormats() = 0;
       virtual std::variant<bool, nitro::NullType, std::string, double> getCellValue(double row, double col) = 0;
       virtual std::string getCellString(double row, double col) = 0;
       virtual std::string getCellRawValue(double row, double col) = 0;
       virtual CellType getCellType(double row, double col) = 0;
       virtual std::shared_ptr<HybridXlsxCellFormatSpec> getCellFormat(double row, double col) = 0;
+      virtual bool hasFormula(double row, double col) = 0;
+      virtual std::string formula(double row, double col) = 0;
+      virtual bool findCell(double row, double col) = 0;
       virtual double getRowCount() = 0;
       virtual double getColumnCount() = 0;
       virtual double getLastRow() = 0;
       virtual double getLastColumn() = 0;
       virtual std::string getName() = 0;
+      virtual std::vector<std::shared_ptr<AnyMap>> toJSON(const std::optional<std::vector<std::string>>& keys) = 0;
+      virtual void fromJSON(const std::vector<std::shared_ptr<AnyMap>>& data) = 0;
 
     protected:
       // Hybrid Setup

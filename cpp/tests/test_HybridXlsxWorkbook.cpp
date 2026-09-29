@@ -391,3 +391,82 @@ TEST_F(HybridXlsxWorkbookTest, SaveLoadLargeData) {
 
   doc2.close();
 }
+
+// ========== deleteSheet ==========
+
+TEST_F(HybridXlsxWorkbookTest, DeleteSheet) {
+  OpenXLSX::XLDocument doc;
+  doc.create(testFilePath, OpenXLSX::XLForceOverwrite);
+  doc.workbook().addWorksheet("Keep");
+  doc.workbook().addWorksheet("Remove");
+  EXPECT_EQ(doc.workbook().worksheetCount(), 3u);
+
+  doc.workbook().deleteSheet("Remove");
+  EXPECT_EQ(doc.workbook().worksheetCount(), 2u);
+  EXPECT_EQ(doc.workbook().worksheet("Keep").name(), "Keep");
+
+  doc.close();
+}
+
+TEST_F(HybridXlsxWorkbookTest, DeleteMissingSheetThrows) {
+  OpenXLSX::XLDocument doc;
+  doc.create(testFilePath, OpenXLSX::XLForceOverwrite);
+  EXPECT_THROW(doc.workbook().deleteSheet("DoesNotExist"), OpenXLSX::XLException);
+  doc.close();
+}
+
+// ========== updateSheetName / setName ==========
+
+TEST_F(HybridXlsxWorkbookTest, RenameSheet) {
+  OpenXLSX::XLDocument doc;
+  doc.create(testFilePath, OpenXLSX::XLForceOverwrite);
+  doc.workbook().addWorksheet("OldName");
+  auto ws = doc.workbook().worksheet("OldName");
+  ws.setName("NewName");
+
+  EXPECT_EQ(ws.name(), "NewName");
+  EXPECT_EQ(doc.workbook().worksheet("NewName").name(), "NewName");
+
+  doc.close();
+}
+
+TEST_F(HybridXlsxWorkbookTest, UpdateSheetNameRewritesFormulas) {
+  OpenXLSX::XLDocument doc;
+  doc.create(testFilePath, OpenXLSX::XLForceOverwrite);
+  doc.workbook().addWorksheet("Data");
+  doc.workbook().addWorksheet("Calc");
+  auto data = doc.workbook().worksheet("Data");
+  data.cell(1, 1).value() = 42.0;
+  auto calc = doc.workbook().worksheet("Calc");
+  calc.cell(1, 1).formula() = "Data!A1*2";
+
+  // Rename the sheet, then rewrite formula refs on every sheet that may reference it
+  data.setName("Data2");
+  data.updateSheetName("Data", "Data2");
+  calc.updateSheetName("Data", "Data2");
+
+  EXPECT_EQ(data.name(), "Data2");
+  EXPECT_EQ(calc.cell(1, 1).formula().get(), "Data2!A1*2");
+
+  doc.close();
+}
+
+// ========== clone ==========
+
+TEST_F(HybridXlsxWorkbookTest, CloneSheet) {
+  OpenXLSX::XLDocument doc;
+  doc.create(testFilePath, OpenXLSX::XLForceOverwrite);
+  doc.workbook().addWorksheet("Source");
+  auto src = doc.workbook().worksheet("Source");
+  src.cell(1, 1).value() = "ClonedValue";
+  src.cell(2, 1).value() = 3.14;
+
+  doc.workbook().cloneSheet("Source", "Copy");
+  EXPECT_EQ(doc.workbook().worksheetCount(), 3u);
+
+  auto copy = doc.workbook().worksheet("Copy");
+  EXPECT_EQ(copy.cell(1, 1).value().get<std::string>(), "ClonedValue");
+  EXPECT_DOUBLE_EQ(copy.cell(2, 1).value().get<double>(), 3.14);
+
+  doc.close();
+}

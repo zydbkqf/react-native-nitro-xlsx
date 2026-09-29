@@ -10,10 +10,19 @@ class NitroXlsxPackage : ReactPackage {
     init {
       NitroXlsxOnLoad.initializeNative()
     }
+
+    /** Pass the app cache directory to the native layer for temp XLSX files. */
+    @JvmStatic
+    private external fun nativeSetCacheDir(dir: String)
   }
 
   @Suppress("OVERRIDE_DEPRECATION")
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+    try {
+      nativeSetCacheDir(reactContext.cacheDir.absolutePath)
+    } catch (_: Throwable) {
+      // native resolver falls back to Context.getCacheDir() via JNI
+    }
     return emptyList()
   }
 
