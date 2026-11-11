@@ -13,27 +13,33 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.1" }
   s.source       = { :git => "https://github.com/zydbkqf/react-native-nitro-xlsx.git", :tag => "#{s.version}" }
 
+  # OpenXLSX, pugixml and miniz are vendored under thirdparty/ and shipped
+  # with the package, so no network access is needed during pod install.
   s.exclude_files = [
     "cpp/tests/**/*",
-    "OpenXLSX/ThirdParty/miniz/tests/**/*",
-    "OpenXLSX/ThirdParty/miniz/examples/**/*",
+    "thirdparty/miniz/tests/**/*",
+    "thirdparty/miniz/examples/**/*",
+    "thirdparty/pugixml/tests/**/*",
+    "thirdparty/OpenXLSX/Tests/**/*",
+    "thirdparty/OpenXLSX/Examples/**/*",
+    "thirdparty/OpenXLSX/Benchmarks/**/*",
   ]
 
   s.source_files = [
     "cpp/**/*.{h,hpp,cpp}",
     "ios/**/*.{h,hpp,mm}",
-    "OpenXLSX/OpenXLSX/**/*.hpp",
-    "OpenXLSX/OpenXLSX/**/*.cpp",
-    "OpenXLSX/ThirdParty/pugixml/src/**/*.hpp",
-    "OpenXLSX/ThirdParty/pugixml/src/**/*.cpp",
-    "OpenXLSX/OpenXLSX/headers/detail/Zippy.hpp",
-    "OpenXLSX/ThirdParty/miniz/**/*.h",
-    "OpenXLSX/ThirdParty/miniz/**/*.c",
+    "thirdparty/OpenXLSX/OpenXLSX/**/*.hpp",
+    "thirdparty/OpenXLSX/OpenXLSX/**/*.cpp",
+    "thirdparty/pugixml/src/**/*.hpp",
+    "thirdparty/pugixml/src/**/*.cpp",
+    "thirdparty/OpenXLSX/OpenXLSX/headers/detail/Zippy.hpp",
+    "thirdparty/miniz/**/*.h",
+    "thirdparty/miniz/**/*.c",
   ]
 
   s.private_header_files = [
-    "OpenXLSX/**/*.hpp",
-    "OpenXLSX/**/*.h",
+    "thirdparty/OpenXLSX/**/*.hpp",
+    "thirdparty/OpenXLSX/**/*.h",
   ]
 
   s.dependency "React"
@@ -45,29 +51,22 @@ Pod::Spec.new do |s|
     "SWIFT_INSTALL_OBJC_HEADER" => "NO",
     "OTHER_CFLAGS" => "$(inherited) -fmodules",
     "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -fmodules",
-    "HEADER_SEARCH_PATHS" => "$(inherited) ${PODS_TARGET_SRCROOT}/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX/headers ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/pugixml/src ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/miniz",
+    "HEADER_SEARCH_PATHS" => "$(inherited) ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX/OpenXLSX ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX/OpenXLSX/headers ${PODS_TARGET_SRCROOT}/thirdparty/pugixml/src ${PODS_TARGET_SRCROOT}/thirdparty/miniz",
   }
 
   s.user_target_xcconfig = {
     "OTHER_CFLAGS" => "$(inherited) -fmodules",
     "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -fmodules",
-    "HEADER_SEARCH_PATHS" => "$(inherited) ${PODS_TARGET_SRCROOT}/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX ${PODS_TARGET_SRCROOT}/OpenXLSX/OpenXLSX/headers ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/pugixml/src ${PODS_TARGET_SRCROOT}/OpenXLSX/ThirdParty/miniz",
+    "HEADER_SEARCH_PATHS" => "$(inherited) ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX/OpenXLSX ${PODS_TARGET_SRCROOT}/thirdparty/OpenXLSX/OpenXLSX/headers ${PODS_TARGET_SRCROOT}/thirdparty/pugixml/src ${PODS_TARGET_SRCROOT}/thirdparty/miniz",
   }
 
-  # Prepare OpenXLSX and its dependencies (pugixml, miniz) via a Node script
-  # so the same logic can be reused from both CocoaPods and Android CMake.
-  s.prepare_command = "node #{__dir__}/scripts/prepare-openxlsx.js"
-
-  # Swift Package Manager declaration for React Native 0.87+.
-  # This exposes NitroXlsx as a local Swift package; the heavy lifting for
-  # OpenXLSX is still done by the prepare command above.
-  if ENV['NITRO_XLSX_USE_SPM'] == '1' && defined?(SPM) && SPM.respond_to?(:dependency)
-    SPM.dependency(s,
-      url: File.join(__dir__, "."),
-      requirement: { kind: 'upToNextMajorVersion', minimumVersion: s.version.to_s },
-      products: ['NitroXlsx']
-    )
-  end
+  # Swift Package Manager note: this podspec intentionally declares nothing for
+  # SPM. React Native 0.88+ drives SwiftPM from `package.json` (`swiftpmConfig`)
+  # and `npx react-native spm`, and the manifest lives in Package.swift. That
+  # manifest is still a placeholder (it only compiles ios/XlsxCacheDir.mm) and
+  # CocoaPods remains the build path for this library until the C++ targets,
+  # the vendored thirdparty/ tree and the NitroModules dependency are wired
+  # into it.
 
   load 'nitrogen/generated/ios/NitroXlsx+autolinking.rb'
   add_nitrogen_files(s)

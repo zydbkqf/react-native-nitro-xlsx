@@ -8,12 +8,21 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 # Find OpenXLSX
 include(FetchContent)
 
-# Option to use local OpenXLSX (set OPENXLSX_PATH env var to override)
-set(OPENXLSX_PATH "" CACHE PATH "Path to local OpenXLSX source")
+set(THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty")
+
+# Use the vendored OpenXLSX by default (thirdparty/). Set OPENXLSX_PATH to
+# override with another checkout.
+set(OPENXLSX_PATH "${THIRDPARTY_DIR}/OpenXLSX" CACHE PATH "Path to local OpenXLSX source")
 
 if(OPENXLSX_PATH AND EXISTS "${OPENXLSX_PATH}/CMakeLists.txt")
   message(STATUS "Using local OpenXLSX from: ${OPENXLSX_PATH}")
   set(OpenXLSX_SOURCE_DIR "${OPENXLSX_PATH}" CACHE PATH "OpenXLSX source directory")
+  # Resolve OpenXLSX's pugixml/miniz dependencies from the vendored copies
+  # instead of cloning them from GitHub.
+  set(FORCE_FETCH_ALL ON CACHE BOOL "" FORCE)
+  set(FETCHCONTENT_SOURCE_DIR_PUGIXML_FETCH "${THIRDPARTY_DIR}/pugixml" CACHE PATH "" FORCE)
+  set(FETCHCONTENT_SOURCE_DIR_MINIZ_FETCH "${THIRDPARTY_DIR}/miniz" CACHE PATH "" FORCE)
+  set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "" FORCE)
   set(OPENXLSX_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
   set(OPENXLSX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
   set(OPENXLSX_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)

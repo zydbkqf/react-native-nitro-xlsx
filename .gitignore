@@ -68,7 +68,9 @@ yarn-error.log
 /coverage
 *.tsbuildinfo
 
-# OpenXLSX and its dependencies are downloaded by scripts/prepare-openxlsx.js
+# OpenXLSX, pugixml and miniz are vendored (committed) under /thirdparty.
+# The legacy clone location is still ignored so an old checkout left behind
+# by scripts/prepare-openxlsx.js does not show up in git status.
 /OpenXLSX
 
 # Yarn

@@ -4,33 +4,26 @@ project("NitroXlsx")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(OPENXLSX_DIR ${CMAKE_SOURCE_DIR}/../OpenXLSX)
+set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/../thirdparty)
+set(OPENXLSX_DIR ${THIRDPARTY_DIR}/OpenXLSX)
 
-# Prepare OpenXLSX and its dependencies (pugixml, miniz) using the same
-# Node script that CocoaPods' prepare_command runs on iOS.
-find_program(NODE_EXECUTABLE node REQUIRED)
-execute_process(
-  COMMAND ${NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/../scripts/prepare-openxlsx.js
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/..
-  RESULT_VARIABLE PREPARE_RESULT
-)
-if(NOT PREPARE_RESULT EQUAL 0)
-  message(FATAL_ERROR
-    "Failed to prepare OpenXLSX dependencies.\n"
-    "Please ensure Node.js is installed and run:\n"
-    "  node scripts/prepare-openxlsx.js"
-  )
-endif()
+# OpenXLSX, pugixml and miniz are vendored under thirdparty/ so the build
+# never clones anything from GitHub.
+foreach(required_dir OpenXLSX pugixml miniz)
+  if(NOT EXISTS ${THIRDPARTY_DIR}/${required_dir})
+    message(FATAL_ERROR
+      "Vendored dependency '${required_dir}' is missing at ${THIRDPARTY_DIR}/${required_dir}.\n"
+      "The thirdparty/ tree is part of the package - reinstall react-native-nitro-xlsx."
+    )
+  endif()
+endforeach()
 
-# Verify OpenXLSX is available
-if(NOT EXISTS ${OPENXLSX_DIR}/CMakeLists.txt)
-  message(FATAL_ERROR
-    "OpenXLSX not found at ${OPENXLSX_DIR}.\n"
-    "Please manually clone OpenXLSX:\n"
-    "  cd ${CMAKE_SOURCE_DIR}/.. && git clone --depth 1 --branch v0.5.1 https://github.com/troldal/OpenXLSX.git OpenXLSX\n"
-    "Then clean CMake cache and rebuild."
-  )
-endif()
+# Point OpenXLSX's FetchContent lookups at the vendored copies, so
+# manage_dependency() populates them from disk instead of cloning GitHub.
+set(FORCE_FETCH_ALL ON CACHE BOOL "" FORCE)
+set(FETCHCONTENT_SOURCE_DIR_PUGIXML_FETCH ${THIRDPARTY_DIR}/pugixml CACHE PATH "" FORCE)
+set(FETCHCONTENT_SOURCE_DIR_MINIZ_FETCH ${THIRDPARTY_DIR}/miniz CACHE PATH "" FORCE)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "" FORCE)
 
 set(OPENXLSX_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
 set(OPENXLSX_BUILD_TESTS OFF CACHE BOOL "" FORCE)

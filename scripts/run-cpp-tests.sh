@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/cpp/tests"
 
 if [ -z "${OPENXLSX_PATH:-}" ]; then
-  OPENXLSX_PATH="$ROOT/OpenXLSX"
+  OPENXLSX_PATH="$ROOT/thirdparty/OpenXLSX"
 fi
 
 cmake -B build -DOPENXLSX_PATH="$OPENXLSX_PATH"
