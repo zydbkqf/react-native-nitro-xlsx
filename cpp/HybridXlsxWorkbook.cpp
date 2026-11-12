@@ -33,17 +33,34 @@ HybridXlsxWorkbook::~HybridXlsxWorkbook() {
 
 void HybridXlsxWorkbook::openFromFile(const std::string& path) {
   _workbook->open(path);
+  ++_generation;
   loadWorksheets();
 }
 
 void HybridXlsxWorkbook::openFromBuffer(const uint8_t* data, size_t size) {
   std::string tempPath = tempFilePath("xlsx_open");
-  std::ofstream file(tempPath, std::ios::binary);
-  file.write(reinterpret_cast<const char*>(data), size);
-  file.close();
+  {
+    std::ofstream file(tempPath, std::ios::binary);
+    if (!file.is_open()) {
+      throw XlsxError(xlsx_error::IO_ERROR, "Failed to open temp file for writing: " + tempPath);
+    }
+    file.write(reinterpret_cast<const char*>(data), static_cast<std::streamsize>(size));
+    file.close();
+    if (file.fail()) {
+      std::remove(tempPath.c_str());
+      throw XlsxError(xlsx_error::IO_ERROR, "Failed to write buffer to temp file: " + tempPath);
+    }
+  }
 
-  _workbook->open(tempPath);
+  try {
+    _workbook->open(tempPath);
+  } catch (...) {
+    // Never leak the temp file when opening fails.
+    std::remove(tempPath.c_str());
+    throw;
+  }
   std::remove(tempPath.c_str());
+  ++_generation;
   loadWorksheets();
 }
 
@@ -56,7 +73,7 @@ void HybridXlsxWorkbook::loadWorksheets() {
   for (uint16_t i = 1; i <= count; ++i) {
     auto worksheet = wb.worksheet(i);
     std::string sheetName = worksheet.name();
-    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet);
+    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet, _generation);
     _worksheets.push_back(hybridWorksheet);
     _worksheetNames[sheetName] = hybridWorksheet;
   }
@@ -67,6 +84,7 @@ void HybridXlsxWorkbook::ensureOpen() {
   std::string tempPath = tempFilePath("xlsx_create");
   _workbook->create(tempPath, OpenXLSX::XLForceOverwrite);
   std::remove(tempPath.c_str());
+  ++_generation;
   loadWorksheets();
 }
 
@@ -91,7 +109,7 @@ std::shared_ptr<HybridXlsxWorksheetSpec> HybridXlsxWorkbook::addWorksheet(const 
 
     _workbook->workbook().addWorksheet(sheetName);
     auto worksheet = _workbook->workbook().worksheet(sheetName);
-    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet);
+    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet, _generation);
     _worksheets.push_back(hybridWorksheet);
     _worksheetNames[sheetName] = hybridWorksheet;
     return hybridWorksheet;
@@ -133,6 +151,7 @@ std::shared_ptr<HybridXlsxWorksheetSpec> HybridXlsxWorkbook::getOrAddWorksheet(c
 
 double HybridXlsxWorkbook::getWorksheetCount() {
   return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    ensureOpen();
     return static_cast<double>(_workbook->workbook().worksheetCount());
   });
 }
@@ -200,7 +219,7 @@ std::shared_ptr<HybridXlsxWorksheetSpec> HybridXlsxWorkbook::clone(const std::st
 
     _workbook->workbook().cloneSheet(existingName, newName);
     auto worksheet = _workbook->workbook().worksheet(newName);
-    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet);
+    auto hybridWorksheet = std::make_shared<HybridXlsxWorksheet>(*_workbook, worksheet, _generation);
     _worksheets.push_back(hybridWorksheet);
     _worksheetNames[newName] = hybridWorksheet;
     return hybridWorksheet;
@@ -222,6 +241,7 @@ std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> HybridXlsxWorkbook::getBu
   }
 
   try {
+    ensureOpen();
     std::string tempPath = tempFilePath("xlsx_temp");
     _workbook->saveAs(tempPath, OpenXLSX::XLForceOverwrite);
 
@@ -256,8 +276,18 @@ std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> HybridXlsxWorkbook::getBu
 
 std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> HybridXlsxWorkbook::toJSON() {
   return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    ensureOpen();
     auto wb = _workbook->workbook();
-    return workbookToRecords(wb);
+    auto records = workbookToRecords(wb);
+    // Sheets without any records (e.g. the default sheet of a fresh workbook)
+    // are omitted so an empty workbook round-trips to an empty map.
+    std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> result;
+    for (auto& [name, rows] : records) {
+      if (!rows.empty()) {
+        result.emplace(name, std::move(rows));
+      }
+    }
+    return result;
   });
 }
 

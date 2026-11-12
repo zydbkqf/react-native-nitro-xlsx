@@ -197,7 +197,7 @@ const buffer = await workbook.getBuffer();
 - `createWorkbook(): XlsxWorkbook` - Create a new workbook. The native side supplies the platform cache directory automatically (`Context.getCacheDir()` on Android, `NSCachesDirectory` on iOS).
 - `openWorkbook(path: string): XlsxWorkbook` - Open workbook from file path
 - `openWorkbookFromBuffer(buffer: ArrayBuffer): XlsxWorkbook` - Open workbook from buffer
-- `fromJSON(data: Record<string, Array<Record<string, string | number | boolean | null>>>): XlsxWorkbook` - Create a workbook with one worksheet per key (native `AnyMap`s, no JSON round-trip)
+- `fromJSON(data: Record<string, Array<Record<string, string | number | boolean | null>>>): XlsxWorkbook` - Create a workbook with one worksheet per key (native `AnyMap`s, no JSON round-trip). The default sheet is removed unless one of the keys is named after it
 
 ### XlsxWorkbook
 
@@ -211,7 +211,7 @@ const buffer = await workbook.getBuffer();
 - `clone(existingName: string, newName: string): XlsxWorksheet` - Copy a worksheet
 - `addCellFormat(): XlsxCellFormat` - Add a new cell format
 - `getBuffer(): Promise<ArrayBuffer>` - Generate and return the XLSX file as a buffer
-- `toJSON(): Record<string, Array<Record<string, string | number | boolean | null>>>` - Export every worksheet as a `Record` keyed by sheet name
+- `toJSON(): Record<string, Array<Record<string, string | number | boolean | null>>>` - Export every worksheet as a `Record` keyed by sheet name. Worksheets without a single cell are skipped, so a fresh workbook exports as `{}`
 
 ### XlsxWorksheet
 
@@ -232,7 +232,7 @@ const buffer = await workbook.getBuffer();
 | `writeFormulaNum(row, col, formula, number, format?)` | Write a formula with number default |
 | `writeFormulaString(row, col, formula, string, format?)` | Write a formula with string default |
 | `writeFormulaBoolean(row, col, formula, boolean, format?)` | Write a formula with boolean default |
-| `writeArrayFormula(firstRow, firstCol, lastRow, lastCol, formula, format?)` | Write an array formula |
+| `writeArrayFormula(firstRow, firstCol, lastRow, lastCol, formula, format?)` | Not supported by the underlying engine — always throws `UNSUPPORTED` |
 
 #### Date/URL
 | Method | Description |
@@ -409,7 +409,7 @@ The `XlsxCellFormat` interface is based on OpenXLSX's `XLCellFormat` class and p
 - `setNumFormatIndex(index)` - Set built-in format (use `NumFormat` constants)
 
 #### Colors/Pattern
-- `setBgColor(color)`, `setFgColor(color)`
+- `setBgColor(color)`, `setFgColor(color)` - For solid fills Excel paints the foreground colour, so a colour set only via `setBgColor` is also written as the fill's foreground colour to make it visible
 - `setPattern(pattern)`
 
 #### Borders
@@ -436,9 +436,9 @@ The `XlsxCellFormat` interface is based on OpenXLSX's `XLCellFormat` class and p
 
 When reading cells, the following types are returned:
 
-- `empty` - Empty cell
 - `string` - Text string
-- `number` - Numeric value. Dates are stored as **Excel serial numbers in the 1900 date system** (days since `1900-01-01`, where `1900-01-01` = `1`, including the spurious `1900-02-29`), and are read back as `number`:
+- `number` - Numeric value with no date/time number format applied
+- `date` - Numeric value whose number format is a date/time code. This covers the built-in ids 14–22 and custom codes such as `yyyy-mm-dd`, `h:mm` or `yyyy-mm-dd h:mm:ss`. The stored value is still an **Excel serial number in the 1900 date system** (days since `1900-01-01`, where `1900-01-01` = `1`, including the spurious `1900-02-29`):
   ```ts
   // Excel serial (1900-based) → JS Date
   const date = new Date(Math.round((serial - 25569) * 86400000));
@@ -447,8 +447,11 @@ When reading cells, the following types are returned:
   ```
 - `boolean` - Boolean value
 - `error` - Error value
-- `formula` - Formula
-- `blank` - Blank cell
+- `formula` - Cell holds a formula (checked before the value type, so a formula cell never reads as `number`/`string`)
+- `blank` - Cell exists (e.g. it only carries a style) but has no value
+- `empty` - No cell at these coordinates at all
+
+`getCellType` returns `empty`/`blank` without creating the cell, so probing a cell never mutates the sheet.
 
 ## Constants
 
@@ -509,6 +512,15 @@ To regenerate the native specs after modifying the TypeScript spec files:
 ```sh
 npx nitrogen
 ```
+
+### Tests
+
+```sh
+yarn test        # JS/TS suite (Jest)
+yarn test:cpp    # configure + build cpp/tests into cpp/tests/build, then run gtest
+```
+
+`yarn test:cpp` needs a local GoogleTest installation (`brew install googletest` on macOS); the CMake project looks under `/opt/homebrew`, `/usr/local` and `/usr` first and only falls back to downloading googletest when nothing is found. OpenXLSX, pugixml and miniz are vendored under `thirdparty/`, so the C++ build works offline.
 
 ## License
 

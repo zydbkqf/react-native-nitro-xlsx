@@ -2,15 +2,17 @@
 #include "XlsxError.hpp"
 #include "XlsxJson.hpp"
 #include <OpenXLSX/XLCellReference.hpp>
+#include <cctype>
 #include <cstring>
 #include <cmath>
 #include <fstream>
 #include <chrono>
+#include <string>
 
 namespace margelo::nitro::xlsx {
 
-HybridXlsxWorksheet::HybridXlsxWorksheet(OpenXLSX::XLDocument& doc, OpenXLSX::XLWorksheet worksheet)
-    : HybridObject("XlsxWorksheet"), HybridXlsxWorksheetSpec(), _doc(doc), _worksheet(worksheet) {
+HybridXlsxWorksheet::HybridXlsxWorksheet(OpenXLSX::XLDocument& doc, OpenXLSX::XLWorksheet worksheet, uint64_t documentGeneration)
+    : HybridObject("XlsxWorksheet"), HybridXlsxWorksheetSpec(), _doc(doc), _worksheet(worksheet), _documentGeneration(documentGeneration) {
 }
 
 HybridXlsxWorksheet::~HybridXlsxWorksheet() {
@@ -22,7 +24,7 @@ void HybridXlsxWorksheet::applyFormat(OpenXLSX::XLCell& cell, const std::optiona
   auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
   if (!hybridFormat) return;
   
-  auto styleIndex = hybridFormat->applyToDocument(_doc.styles());
+  auto styleIndex = hybridFormat->applyToDocument(_doc.styles(), _documentGeneration);
   hybridFormat->applyToCell(cell, styleIndex);
 }
 
@@ -92,12 +94,11 @@ void HybridXlsxWorksheet::writeFormulaBoolean(double row, double col, const std:
   });
 }
 
-void HybridXlsxWorksheet::writeArrayFormula(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& formula, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
-  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
-    OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
-    cell.formula() = formula;
-    applyFormat(cell, format);
-  });
+void HybridXlsxWorksheet::writeArrayFormula(double /*firstRow*/, double /*firstCol*/, double /*lastRow*/, double /*lastCol*/, const std::string& /*formula*/, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& /*format*/) {
+  // OpenXLSX (XLFormula) explicitly does not support array formulas; attempting to
+  // write one would silently produce a normal formula covering only the top-left cell.
+  throw XlsxError(xlsx_error::UNSUPPORTED,
+                  "Array formulas are not supported by the underlying OpenXLSX engine");
 }
 
 void HybridXlsxWorksheet::writeDatetime(double row, double col, double datetime, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
@@ -117,36 +118,40 @@ void HybridXlsxWorksheet::writeURL(double row, double col, const std::string& ur
 }
 
 void HybridXlsxWorksheet::setColumn(double firstCol, double lastCol, double width, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
-  for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
-    _worksheet.column(c).setWidth(static_cast<float>(width));
-  }
-  if (format.has_value()) {
-    // Apply format to entire column range by setting it on cells in the first row
-    // (OpenXLSX does not support column-level style; apply to first row cells as a hint)
-    auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
-    if (hybridFormat) {
-      auto styleIndex = hybridFormat->applyToDocument(_doc.styles());
-      for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
-        OpenXLSX::XLCell cell = _worksheet.cell(1, c);
-        hybridFormat->applyToCell(cell, styleIndex);
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
+      _worksheet.column(c).setWidth(static_cast<float>(width));
+    }
+    if (format.has_value()) {
+      // Apply format to entire column range by setting it on cells in the first row
+      // (OpenXLSX does not support column-level style; apply to first row cells as a hint)
+      auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
+      if (hybridFormat) {
+        auto styleIndex = hybridFormat->applyToDocument(_doc.styles(), _documentGeneration);
+        for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
+          OpenXLSX::XLCell cell = _worksheet.cell(1, c);
+          hybridFormat->applyToCell(cell, styleIndex);
+        }
       }
     }
-  }
+  });
 }
 
 void HybridXlsxWorksheet::setRow(double row, double height, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
-  _worksheet.row(static_cast<unsigned int>(row)).setHeight(static_cast<float>(height));
-  if (format.has_value()) {
-    auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
-    if (hybridFormat) {
-      auto styleIndex = hybridFormat->applyToDocument(_doc.styles());
-      unsigned int colCount = _worksheet.columnCount();
-      for (unsigned int c = 1; c <= colCount; ++c) {
-        OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(row), c);
-        hybridFormat->applyToCell(cell, styleIndex);
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    _worksheet.row(static_cast<unsigned int>(row)).setHeight(static_cast<float>(height));
+    if (format.has_value()) {
+      auto hybridFormat = std::dynamic_pointer_cast<HybridXlsxCellFormat>(*format);
+      if (hybridFormat) {
+        auto styleIndex = hybridFormat->applyToDocument(_doc.styles(), _documentGeneration);
+        unsigned int colCount = _worksheet.columnCount();
+        for (unsigned int c = 1; c <= colCount; ++c) {
+          OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(row), c);
+          hybridFormat->applyToCell(cell, styleIndex);
+        }
       }
     }
-  }
+  });
 }
 
 bool HybridXlsxWorksheet::deleteRow(double row) {
@@ -168,21 +173,28 @@ bool HybridXlsxWorksheet::deleteColumn(double col) {
       return false;
     }
 
-    // Shift cell contents left for every row
+    // Shift cell contents left for every row. Use findCell for reads so rows/cells
+    // that do not exist are never materialized just by shifting.
     for (unsigned int r = 1; r <= lastRow; ++r) {
       for (unsigned int c = targetCol + 1; c <= lastCol; ++c) {
-        OpenXLSX::XLCell src = _worksheet.cell(r, c);
-        OpenXLSX::XLCell dst = _worksheet.cell(r, c - 1);
+        OpenXLSX::XLCellAssignable src = _worksheet.findCell(r, c);
         if (!src.empty()) {
+          OpenXLSX::XLCell dst = _worksheet.cell(r, c - 1);
           dst.copyFrom(src);
           dst.setCellFormat(src.cellFormat());
         } else {
-          dst.clear(0);
+          // Only clear an existing destination cell; never create one.
+          OpenXLSX::XLCellAssignable dst = _worksheet.findCell(r, c - 1);
+          if (!dst.empty()) {
+            dst.clear(0);
+          }
         }
       }
-      // Clear the trailing column
-      OpenXLSX::XLCell trailing = _worksheet.cell(r, lastCol);
-      trailing.clear(0);
+      // Clear the trailing column (only if the cell exists)
+      OpenXLSX::XLCellAssignable trailing = _worksheet.findCell(r, lastCol);
+      if (!trailing.empty()) {
+        trailing.clear(0);
+      }
     }
 
     // Shift column widths / hidden state left
@@ -198,23 +210,27 @@ bool HybridXlsxWorksheet::deleteColumn(double col) {
 }
 
 void HybridXlsxWorksheet::mergeRange(double firstRow, double firstCol, double lastRow, double lastCol, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
-  OpenXLSX::XLCellReference topLeft(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
-  OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
-  OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
-  _worksheet.mergeCells(range);
-  OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
-  cell.value() = value;
-  applyFormat(cell, format);
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    OpenXLSX::XLCellReference topLeft(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+    OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
+    OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
+    _worksheet.mergeCells(range);
+    OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+    cell.value() = value;
+    applyFormat(cell, format);
+  });
 }
 
 void HybridXlsxWorksheet::mergeRangeNum(double firstRow, double firstCol, double lastRow, double lastCol, double value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) {
-  OpenXLSX::XLCellReference topLeft(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
-  OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
-  OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
-  _worksheet.mergeCells(range);
-  OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
-  cell.value() = value;
-  applyFormat(cell, format);
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    OpenXLSX::XLCellReference topLeft(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+    OpenXLSX::XLCellReference bottomRight(static_cast<unsigned int>(lastRow), static_cast<unsigned int>(lastCol));
+    OpenXLSX::XLCellRange range = _worksheet.range(topLeft, bottomRight);
+    _worksheet.mergeCells(range);
+    OpenXLSX::XLCell cell = _worksheet.cell(static_cast<unsigned int>(firstRow), static_cast<unsigned int>(firstCol));
+    cell.value() = value;
+    applyFormat(cell, format);
+  });
 }
 
 void HybridXlsxWorksheet::unmergeCells(double firstRow, double firstCol, double lastRow, double lastCol) {
@@ -233,7 +249,9 @@ void HybridXlsxWorksheet::hide() {
 }
 
 void HybridXlsxWorksheet::activate() {
-  _worksheet.setActive();
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    _worksheet.setActive();
+  });
 }
 
 // ========== Sheet protection ==========
@@ -465,130 +483,393 @@ std::string HybridXlsxWorksheet::sheetProtectionSummary() {
 }
 
 void HybridXlsxWorksheet::setColumnHidden(double firstCol, double lastCol, bool hidden) {
-  for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
-    _worksheet.column(c).setHidden(hidden);
-  }
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    for (unsigned int c = static_cast<unsigned int>(firstCol); c <= static_cast<unsigned int>(lastCol); ++c) {
+      _worksheet.column(c).setHidden(hidden);
+    }
+  });
 }
 
 void HybridXlsxWorksheet::setRowHidden(double row, bool hidden) {
-  _worksheet.row(static_cast<unsigned int>(row)).setHidden(hidden);
+  withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    _worksheet.row(static_cast<unsigned int>(row)).setHidden(hidden);
+  });
 }
 
-std::variant<bool, nitro::NullType, std::string, double> HybridXlsxWorksheet::getCellValue(double row, double col) {
-  auto cell = _worksheet.cell(static_cast<unsigned int>(row), static_cast<unsigned int>(col));
-  auto type = cell.value().type();
-  
-  switch (type) {
-    case OpenXLSX::XLValueType::String:
-      return cell.value().get<std::string>();
-    case OpenXLSX::XLValueType::Integer:
-      return static_cast<double>(cell.value().get<int64_t>());
-    case OpenXLSX::XLValueType::Float:
-      return cell.value().get<double>();
-    case OpenXLSX::XLValueType::Boolean:
-      return cell.value().get<bool>();
-    case OpenXLSX::XLValueType::Empty:
-    case OpenXLSX::XLValueType::Error:
-    default:
-      return nitro::NullType{};
+// ========== Read helpers ==========
+
+namespace {
+
+  // Reverse of HybridXlsxCellFormat's color encoding: XLColor hex "AARRGGBB" ->
+  // packed RGB double (0xRRGGBB) used by the public color setters.
+  double xlColorToDouble(const OpenXLSX::XLColor& color) {
+    std::string hex = color.hex();
+    if (hex.empty()) return 0.0;
+    uint32_t argb = static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
+    return static_cast<double>(argb & 0x00FFFFFFu);
   }
+
+  // Built-in number format codes (numFmtId 0-49, ECMA-376). nullptr when unknown.
+  const char* builtinNumFmtCode(uint32_t numFmtId) {
+    switch (numFmtId) {
+      case 0:  return "General";
+      case 1:  return "0";
+      case 2:  return "0.00";
+      case 3:  return "#,##0";
+      case 4:  return "#,##0.00";
+      case 5:  return "_($* #,##0_);_($* (#,##0);_($* \"-\"_);_(@_)";
+      case 6:  return "_($* #,##0.00_);_($* (#,##0.00);_($* \"-\"??_);_(@_)";
+      case 7:  return "_(#,##0_);(#,##0)";
+      case 8:  return "_(#,##0.00_);(#,##0.00)";
+      case 9:  return "0%";
+      case 10: return "0.00%";
+      case 11: return "0.00E+00";
+      case 12: return "# ?/?";
+      case 13: return "# ?\?/??";
+      case 14: return "mm-dd-yy";
+      case 15: return "d-mmm-yy";
+      case 16: return "d-mmm";
+      case 17: return "mmm-yy";
+      case 18: return "h:mm AM/PM";
+      case 19: return "h:mm:ss AM/PM";
+      case 20: return "h:mm";
+      case 21: return "h:mm:ss";
+      case 22: return "m/d/yy h:mm";
+      case 37: return "#,##0 ;(#,##0)";
+      case 38: return "#,##0 ;[Red](#,##0)";
+      case 39: return "#,##0.00;(#,##0.00)";
+      case 40: return "#,##0.00;[Red](#,##0.00)";
+      case 45: return "mm:ss";
+      case 46: return "[h]:mm:ss";
+      case 47: return "mmss.0";
+      case 48: return "##0.0E+0";
+      case 49: return "@";
+      default: return nullptr;
+    }
+  }
+
+  // Resolve a numFmtId to its format code: custom entries in styles.xml first,
+  // then the built-in table.
+  std::string lookupNumFmtCode(OpenXLSX::XLStyles& styles, uint32_t numFmtId) {
+    try {
+      return styles.numberFormats().numberFormatById(numFmtId).formatCode();
+    } catch (const std::exception&) {
+      const char* builtin = builtinNumFmtCode(numFmtId);
+      return builtin ? std::string(builtin) : std::string();
+    }
+  }
+
+  // Does this format code describe a date/time? Strips quoted literals, escapes
+  // and [..] sections, then looks for date/time tokens (y, d, hh, ss, m/d).
+  bool formatCodeIsDateTime(const std::string& fmt) {
+    std::string s;
+    s.reserve(fmt.size());
+    bool inQuote = false;
+    for (size_t i = 0; i < fmt.size(); ++i) {
+      char ch = fmt[i];
+      if (inQuote) {
+        if (ch == '"') inQuote = false;
+        continue;
+      }
+      if (ch == '"') { inQuote = true; continue; }
+      if (ch == '\\' && i + 1 < fmt.size()) { ++i; continue; }
+      if (ch == '[') {
+        size_t end = fmt.find(']', i);
+        if (end != std::string::npos) {
+          std::string section = fmt.substr(i + 1, end - i - 1);
+          // Elapsed-time sections like [h], [mm], [ss] are date/time.
+          if (section == "h" || section == "m" || section == "s" ||
+              section == "hh" || section == "mm" || section == "ss") {
+            return true;
+          }
+          i = end;
+          continue;
+        }
+      }
+      s += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    if (s.find('y') != std::string::npos) return true;
+    if (s.find('d') != std::string::npos) return true;
+    // Single-letter h covers custom time-only codes such as "h:mm"; the
+    // "hh"/"ss" forms are covered by this and the check below.
+    if (s.find('h') != std::string::npos) return true;
+    if (s.find("ss") != std::string::npos) return true;
+    if (s.find("m/") != std::string::npos || s.find("/m") != std::string::npos) return true;
+    return false;
+  }
+
+  // Date/time detection per the number format applied to a cell style:
+  // built-in numFmtId 14-22 are date/time; custom ids >= 164 are inspected by code.
+  bool numFmtIsDateTime(OpenXLSX::XLStyles& styles, OpenXLSX::XLStyleIndex styleIndex) {
+    try {
+      uint32_t numFmtId = styles.cellFormats()[styleIndex].numberFormatId();
+      if (numFmtId >= 14 && numFmtId <= 22) return true;
+      if (numFmtId >= 164) {
+        try {
+          return formatCodeIsDateTime(styles.numberFormats().numberFormatById(numFmtId).formatCode());
+        } catch (const std::exception&) {
+          return false;
+        }
+      }
+      return false;
+    } catch (const std::exception&) {
+      return false;
+    }
+  }
+
+} // anonymous namespace
+
+std::variant<bool, nitro::NullType, std::string, double> HybridXlsxWorksheet::getCellValue(double row, double col) {
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&]() -> std::variant<bool, nitro::NullType, std::string, double> {
+    OpenXLSX::XLCellAssignable cell = _worksheet.findCell(static_cast<uint32_t>(row), static_cast<uint16_t>(col));
+    if (cell.empty()) return nitro::NullType{};
+    auto type = cell.value().type();
+
+    switch (type) {
+      case OpenXLSX::XLValueType::String:
+        return cell.value().get<std::string>();
+      case OpenXLSX::XLValueType::Integer:
+        return static_cast<double>(cell.value().get<int64_t>());
+      case OpenXLSX::XLValueType::Float:
+        return cell.value().get<double>();
+      case OpenXLSX::XLValueType::Boolean:
+        return cell.value().get<bool>();
+      case OpenXLSX::XLValueType::Empty:
+      case OpenXLSX::XLValueType::Error:
+      default:
+        return nitro::NullType{};
+    }
+  });
 }
 
 std::string HybridXlsxWorksheet::getCellString(double row, double col) {
-  auto cell = _worksheet.cell(static_cast<unsigned int>(row), static_cast<unsigned int>(col));
-  auto type = cell.value().type();
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    OpenXLSX::XLCellAssignable cell = _worksheet.findCell(static_cast<uint32_t>(row), static_cast<uint16_t>(col));
+    if (cell.empty()) return std::string();
+    auto type = cell.value().type();
 
-  switch (type) {
-    case OpenXLSX::XLValueType::String:
-      return cell.value().get<std::string>();
-    case OpenXLSX::XLValueType::Integer:
-      return std::to_string(cell.value().get<int64_t>());
-    case OpenXLSX::XLValueType::Float:
-      return std::to_string(cell.value().get<double>());
-    case OpenXLSX::XLValueType::Boolean:
-      return cell.value().get<bool>() ? "TRUE" : "FALSE";
-    case OpenXLSX::XLValueType::Empty:
-    case OpenXLSX::XLValueType::Error:
-    default:
-      return "";
-  }
+    switch (type) {
+      case OpenXLSX::XLValueType::String:
+        return cell.value().get<std::string>();
+      case OpenXLSX::XLValueType::Integer:
+        return std::to_string(cell.value().get<int64_t>());
+      case OpenXLSX::XLValueType::Float:
+        return std::to_string(cell.value().get<double>());
+      case OpenXLSX::XLValueType::Boolean:
+        return cell.value().get<bool>() ? std::string("TRUE") : std::string("FALSE");
+      case OpenXLSX::XLValueType::Empty:
+      case OpenXLSX::XLValueType::Error:
+      default:
+        return std::string();
+    }
+  });
 }
 
 std::string HybridXlsxWorksheet::getCellRawValue(double row, double col) {
-  auto cell = _worksheet.cell(static_cast<unsigned int>(row), static_cast<unsigned int>(col));
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    OpenXLSX::XLCellAssignable cell = _worksheet.findCell(static_cast<uint32_t>(row), static_cast<uint16_t>(col));
+    if (cell.empty()) return std::string();
 
-  if (cell.hasFormula()) {
-    return cell.formula().get();
-  }
+    if (cell.hasFormula()) {
+      return cell.formula().get();
+    }
 
-  auto type = cell.value().type();
-  switch (type) {
-    case OpenXLSX::XLValueType::String:
-      return cell.value().get<std::string>();
-    case OpenXLSX::XLValueType::Integer:
-      return std::to_string(cell.value().get<int64_t>());
-    case OpenXLSX::XLValueType::Float:
-      return std::to_string(cell.value().get<double>());
-    case OpenXLSX::XLValueType::Boolean:
-      return cell.value().get<bool>() ? "TRUE" : "FALSE";
-    case OpenXLSX::XLValueType::Empty:
-    case OpenXLSX::XLValueType::Error:
-    default:
-      return "";
-  }
+    auto type = cell.value().type();
+    switch (type) {
+      case OpenXLSX::XLValueType::String:
+        return cell.value().get<std::string>();
+      case OpenXLSX::XLValueType::Integer:
+        return std::to_string(cell.value().get<int64_t>());
+      case OpenXLSX::XLValueType::Float:
+        return std::to_string(cell.value().get<double>());
+      case OpenXLSX::XLValueType::Boolean:
+        return cell.value().get<bool>() ? std::string("TRUE") : std::string("FALSE");
+      case OpenXLSX::XLValueType::Empty:
+      case OpenXLSX::XLValueType::Error:
+      default:
+        return std::string();
+    }
+  });
 }
 
 CellType HybridXlsxWorksheet::getCellType(double row, double col) {
-  auto cell = _worksheet.cell(static_cast<unsigned int>(row), static_cast<unsigned int>(col));
-  auto type = cell.value().type();
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    OpenXLSX::XLCellAssignable cell = _worksheet.findCell(static_cast<uint32_t>(row), static_cast<uint16_t>(col));
+    if (cell.empty()) return CellType::EMPTY;
 
-  if (cell.hasFormula()) {
-    return CellType::FORMULA;
-  }
+    if (cell.hasFormula()) {
+      return CellType::FORMULA;
+    }
 
-  switch (type) {
-    case OpenXLSX::XLValueType::Empty:
-      return CellType::EMPTY;
-    case OpenXLSX::XLValueType::String:
-      return CellType::STRING;
-    case OpenXLSX::XLValueType::Integer:
-    case OpenXLSX::XLValueType::Float:
-      return CellType::NUMBER;
-    case OpenXLSX::XLValueType::Boolean:
-      return CellType::BOOLEAN;
-    case OpenXLSX::XLValueType::Error:
-      return CellType::ERROR;
-    default:
-      return CellType::EMPTY;
-  }
+    auto type = cell.value().type();
+    switch (type) {
+      case OpenXLSX::XLValueType::Empty:
+        return CellType::BLANK;
+      case OpenXLSX::XLValueType::String:
+        return CellType::STRING;
+      case OpenXLSX::XLValueType::Integer:
+      case OpenXLSX::XLValueType::Float:
+        if (numFmtIsDateTime(_doc.styles(), cell.cellFormat())) {
+          return CellType::DATE;
+        }
+        return CellType::NUMBER;
+      case OpenXLSX::XLValueType::Boolean:
+        return CellType::BOOLEAN;
+      case OpenXLSX::XLValueType::Error:
+        return CellType::ERROR;
+      default:
+        return CellType::EMPTY;
+    }
+  });
 }
 
 std::shared_ptr<HybridXlsxCellFormatSpec> HybridXlsxWorksheet::getCellFormat(double row, double col) {
-  auto cell = _worksheet.cell(static_cast<unsigned int>(row), static_cast<unsigned int>(col));
-  auto format = std::make_shared<HybridXlsxCellFormat>();
-  return format;
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&]() -> std::shared_ptr<HybridXlsxCellFormatSpec> {
+    auto format = std::make_shared<HybridXlsxCellFormat>();
+    OpenXLSX::XLCellAssignable cell = _worksheet.findCell(static_cast<uint32_t>(row), static_cast<uint16_t>(col));
+    if (cell.empty()) return format;
+
+    auto& styles = _doc.styles();
+    OpenXLSX::XLCellFormat cellFormat = styles.cellFormats()[cell.cellFormat()];
+
+    // Number format
+    std::string numFmtCode = lookupNumFmtCode(styles, cellFormat.numberFormatId());
+    if (!numFmtCode.empty() && numFmtCode != "General") {
+      format->setNumFormat(numFmtCode);
+    }
+
+    // Font
+    OpenXLSX::XLFont font = styles.fonts()[cellFormat.fontIndex()];
+    if (!font.fontName().empty()) format->setFontName(font.fontName());
+    if (font.fontSize() > 0) format->setFontSize(static_cast<double>(font.fontSize()));
+    try {
+      double fontColor = xlColorToDouble(font.fontColor());
+      if (fontColor > 0) format->setFontColor(fontColor);
+    } catch (const std::exception&) {}
+    if (font.bold()) format->setBold();
+    if (font.italic()) format->setItalic();
+    if (font.strikethrough()) format->setStrikeout();
+    {
+      auto underline = font.underline();
+      if (underline != OpenXLSX::XLUnderlineNone && underline != OpenXLSX::XLUnderlineInvalid) {
+        format->setUnderline(static_cast<double>(underline));
+      }
+    }
+    {
+      auto vertAlign = font.vertAlign();
+      if (vertAlign != OpenXLSX::XLBaseline && vertAlign != OpenXLSX::XLVerticalAlignRunInvalid) {
+        format->setFontScript(static_cast<double>(vertAlign));
+      }
+    }
+
+    // Alignment
+    OpenXLSX::XLAlignment alignment = cellFormat.alignment(OpenXLSX::XLDoNotCreate);
+    {
+      auto horizontal = alignment.horizontal();
+      if (horizontal != OpenXLSX::XLAlignGeneral && horizontal != OpenXLSX::XLAlignInvalid) {
+        format->setAlign(static_cast<double>(horizontal));
+      }
+      auto vertical = alignment.vertical();
+      if (vertical != OpenXLSX::XLAlignGeneral && vertical != OpenXLSX::XLAlignInvalid) {
+        format->setVerticalAlign(static_cast<double>(vertical));
+      }
+      if (alignment.wrapText()) format->setTextWrap();
+      if (alignment.textRotation() != 0) format->setRotation(static_cast<double>(alignment.textRotation()));
+      if (alignment.indent() != 0) format->setIndent(static_cast<double>(alignment.indent()));
+      if (alignment.shrinkToFit()) format->setShrink();
+    }
+
+    // Fill (pattern + fg/bg colors)
+    OpenXLSX::XLFill fill = styles.fills()[cellFormat.fillIndex()];
+    if (fill.fillType() == OpenXLSX::XLPatternFill) {
+      auto pattern = fill.patternType();
+      if (pattern != OpenXLSX::XLPatternNone && pattern != OpenXLSX::XLPatternTypeInvalid) {
+        format->setPattern(static_cast<double>(pattern));
+      }
+      try {
+        double fg = xlColorToDouble(fill.color());
+        if (fg > 0) format->setFgColor(fg);
+      } catch (const std::exception&) {}
+      try {
+        double bg = xlColorToDouble(fill.backgroundColor());
+        if (bg > 0) format->setBgColor(bg);
+      } catch (const std::exception&) {}
+    }
+
+    // Border (per-side styles and colors)
+    OpenXLSX::XLBorder border = styles.borders()[cellFormat.borderIndex()];
+    double leftStyle = 0, rightStyle = 0, topStyle = 0, bottomStyle = 0;
+    double leftColor = 0, rightColor = 0, topColor = 0, bottomColor = 0;
+    auto readLine = [](const OpenXLSX::XLLine& line, double& styleOut, double& colorOut) {
+      if (!line) return;
+      auto style = line.style();
+      if (style != OpenXLSX::XLLineStyleNone && style != OpenXLSX::XLLineStyleInvalid) {
+        styleOut = static_cast<double>(style);
+      }
+      try {
+        double c = xlColorToDouble(line.color().rgb());
+        if (c > 0) colorOut = c;
+      } catch (const std::exception&) {}
+    };
+    readLine(border.left(), leftStyle, leftColor);
+    readLine(border.right(), rightStyle, rightColor);
+    readLine(border.top(), topStyle, topColor);
+    readLine(border.bottom(), bottomStyle, bottomColor);
+    if (leftStyle > 0) format->setLeft(leftStyle);
+    if (rightStyle > 0) format->setRight(rightStyle);
+    if (topStyle > 0) format->setTop(topStyle);
+    if (bottomStyle > 0) format->setBottom(bottomStyle);
+    if (leftColor > 0) format->setLeftColor(leftColor);
+    if (rightColor > 0) format->setRightColor(rightColor);
+    if (topColor > 0) format->setTopColor(topColor);
+    if (bottomColor > 0) format->setBottomColor(bottomColor);
+    if (leftStyle > 0 && leftStyle == rightStyle && leftStyle == topStyle && leftStyle == bottomStyle) {
+      format->setBorder(leftStyle);
+      if (leftColor > 0 && leftColor == rightColor && leftColor == topColor && leftColor == bottomColor) {
+        format->setBorderColor(leftColor);
+      }
+    }
+
+    // Protection
+    if (cellFormat.applyProtection()) {
+      if (cellFormat.locked()) format->setLocked();
+      else format->setUnlocked();
+    }
+
+    return format;
+  });
 }
 
 double HybridXlsxWorksheet::getRowCount() {
-  return static_cast<double>(_worksheet.rowCount());
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    return static_cast<double>(_worksheet.rowCount());
+  });
 }
 
 double HybridXlsxWorksheet::getColumnCount() {
-  return static_cast<double>(_worksheet.columnCount());
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    return static_cast<double>(_worksheet.columnCount());
+  });
 }
 
 double HybridXlsxWorksheet::getLastRow() {
-  auto last = _worksheet.lastCell();
-  return static_cast<double>(last.row());
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    if (_worksheet.rowCount() == 0) return 0.0;
+    return static_cast<double>(_worksheet.lastCell().row());
+  });
 }
 
 double HybridXlsxWorksheet::getLastColumn() {
-  auto last = _worksheet.lastCell();
-  return static_cast<double>(last.column());
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    if (_worksheet.rowCount() == 0) return 0.0;
+    return static_cast<double>(_worksheet.lastCell().column());
+  });
 }
 
 std::string HybridXlsxWorksheet::getName() {
-  return _worksheet.name();
+  return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    return _worksheet.name();
+  });
 }
 
 void HybridXlsxWorksheet::applyRename(const std::string& oldName, const std::string& newName) {

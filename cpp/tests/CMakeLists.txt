@@ -76,7 +76,18 @@ set(NITRO_UTILS_DIR "${NITRO_ROOT}/cpp/utils")
 # Shim so `#include <NitroModules/AnyMap.hpp>` resolves in the test build
 set(NITRO_INC_SHIM "${CMAKE_CURRENT_BINARY_DIR}/nitro_inc")
 file(MAKE_DIRECTORY "${NITRO_INC_SHIM}/NitroModules")
-foreach(hdr "AnyMap.hpp:${NITRO_CORE_DIR}/AnyMap.hpp" "Null.hpp:${NITRO_CORE_DIR}/Null.hpp" "NitroDefines.hpp:${NITRO_UTILS_DIR}/NitroDefines.hpp")
+set(NITRO_SHIM_HEADERS
+  "AnyMap.hpp:${NITRO_CORE_DIR}/AnyMap.hpp"
+  "Null.hpp:${NITRO_CORE_DIR}/Null.hpp"
+  "NitroDefines.hpp:${NITRO_UTILS_DIR}/NitroDefines.hpp"
+  "HybridObject.hpp:${NITRO_CORE_DIR}/HybridObject.hpp"
+  "HybridObjectPrototype.hpp:${NITRO_ROOT}/cpp/prototype/HybridObjectPrototype.hpp"
+  "ArrayBuffer.hpp:${NITRO_CORE_DIR}/ArrayBuffer.hpp"
+  "Promise.hpp:${NITRO_CORE_DIR}/Promise.hpp"
+  "JSIConverter.hpp:${NITRO_ROOT}/cpp/jsi/JSIConverter.hpp"
+  "NitroHash.hpp:${NITRO_UTILS_DIR}/NitroHash.hpp"
+)
+foreach(hdr ${NITRO_SHIM_HEADERS})
   string(REPLACE ":" ";" parts "${hdr}")
   list(GET parts 0 name)
   list(GET parts 1 src)
@@ -86,6 +97,10 @@ foreach(hdr "AnyMap.hpp:${NITRO_CORE_DIR}/AnyMap.hpp" "Null.hpp:${NITRO_CORE_DIR
   endif()
 endforeach()
 
+# Lightweight stand-ins for the nitrogen Spec / HybridObject base classes so the
+# real conditional-format implementation files build without JSI (see stubs/).
+set(NITRO_TEST_STUBS "${CMAKE_CURRENT_SOURCE_DIR}/stubs")
+
 set(NITRO_XLSX_TEST_SOURCES
   test_HybridXlsxFormat.cpp
   test_HybridXlsxWorksheet.cpp
@@ -93,6 +108,12 @@ set(NITRO_XLSX_TEST_SOURCES
   test_HybridXlsxJson.cpp
   test_main.cpp
   ../XlsxJson.cpp
+  ../HybridXlsxCellFormat.cpp
+  ../HybridXlsxConditionalFormat.cpp
+  ../HybridXlsxConditionalFormats.cpp
+  ../HybridXlsxWorksheet.cpp
+  ../HybridXlsxWorkbook.cpp
+  ../HybridNitroXlsx.cpp
   ${NITRO_CORE_DIR}/AnyMap.cpp
 )
 
@@ -105,6 +126,7 @@ add_executable(NitroXlsxTests
 )
 
 set(NITRO_XLSX_TEST_INCLUDES
+  ${NITRO_TEST_STUBS}
   .
   ..
   ${OpenXLSX_SOURCE_DIR}

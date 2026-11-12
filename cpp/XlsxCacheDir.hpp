@@ -13,7 +13,9 @@ void setCacheDir(const std::string& dir);
 
 /**
  * Directory used for temporary XLSX files.
- * Priority: explicit setCacheDir() > platform cache dir > TMPDIR > /tmp
+ * Priority: explicit setCacheDir() > platform cache dir > $TMPDIR > /tmp > /data/local/tmp,
+ * where fallbacks are validated as writable directories before being chosen and
+ * "/tmp" is used unvalidated only as a last resort.
  *
  * Implemented in ios/XlsxCacheDir.mm (Apple) and cpp/XlsxCacheDir.cpp (other).
  */

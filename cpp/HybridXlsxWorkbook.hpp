@@ -19,6 +19,10 @@ public:
   void openFromFile(const std::string& path);
   void openFromBuffer(const uint8_t* data, size_t size);
 
+  // Ensure the underlying XLDocument has been created/opened so the workbook is
+  // usable even if it was never explicitly opened (fromJSON, createWorkbook).
+  void ensureOpen();
+
   std::shared_ptr<HybridXlsxWorksheetSpec> addWorksheet(const std::optional<std::string>& name) override;
   std::shared_ptr<HybridXlsxWorksheetSpec> getWorksheet(double index) override;
   std::shared_ptr<HybridXlsxWorksheetSpec> getWorksheetByName(const std::string& name) override;
@@ -37,10 +41,15 @@ private:
   std::unordered_map<std::string, std::shared_ptr<HybridXlsxWorksheet>> _worksheetNames;
   std::vector<std::shared_ptr<HybridXlsxCellFormat>> _cellFormats;
   bool _finalized;
+  // Identifies the current underlying XLDocument. Bumped every time the
+  // document is (re)created or opened so per-document caches (cell styles) can
+  // tell a recycled heap address apart from the document it was built for.
+  uint64_t documentGeneration() const { return _generation; }
+
   std::string _tempDir;
+  uint64_t _generation = 0;
 
   void loadWorksheets();
-  void ensureOpen();
   std::string tempFilePath(const char* prefix);
 };
 

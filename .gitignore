@@ -68,6 +68,9 @@ yarn-error.log
 /coverage
 *.tsbuildinfo
 
+# CMake build trees for the C++ test suite (cpp/tests/build, build-final, ...)
+cpp/tests/build*/
+
 # OpenXLSX, pugixml and miniz are vendored (committed) under /thirdparty.
 # The legacy clone location is still ignored so an old checkout left behind
 # by scripts/prepare-openxlsx.js does not show up in git status.

@@ -9,6 +9,10 @@
 #include <chrono>
 #include <string>
 
+#include "HybridXlsxWorksheet.hpp"
+#include "HybridXlsxCellFormat.hpp"
+#include "XlsxError.hpp"
+
 namespace fs {
 
 inline std::string temp_path(const std::string& suffix = ".xlsx") {
@@ -651,4 +655,240 @@ TEST_F(HybridXlsxWorksheetTest, ActivateSheet) {
 
   second.setActive();
   EXPECT_TRUE(second.isActive());
+}
+
+// ========== HybridXlsxWorksheet API regression tests ==========
+// These exercise the wrapper class (cpp/HybridXlsxWorksheet.cpp), not raw OpenXLSX.
+
+using margelo::nitro::xlsx::CellType;
+using margelo::nitro::xlsx::HybridXlsxCellFormat;
+using margelo::nitro::xlsx::HybridXlsxWorksheet;
+using margelo::nitro::xlsx::XlsxError;
+namespace xlsx_error = margelo::nitro::xlsx::xlsx_error;
+using NullType = margelo::nitro::NullType;
+
+class HybridWorksheetApiTest : public ::testing::Test {
+protected:
+  std::unique_ptr<OpenXLSX::XLDocument> doc;
+  std::shared_ptr<HybridXlsxWorksheet> hybrid;
+  std::string testFilePath;
+
+  void SetUp() override {
+    testFilePath = fs::temp_path("_api.xlsx");
+    doc = std::make_unique<OpenXLSX::XLDocument>();
+    doc->create(testFilePath, OpenXLSX::XLForceOverwrite);
+    doc->workbook().addWorksheet("Api");
+    hybrid = std::make_shared<HybridXlsxWorksheet>(*doc, doc->workbook().worksheet("Api"));
+  }
+
+  void TearDown() override {
+    if (doc) {
+      doc->close();
+    }
+    if (!testFilePath.empty()) {
+      fs::remove_file(testFilePath);
+    }
+  }
+
+  OpenXLSX::XLWorksheet rawSheet() { return doc->workbook().worksheet("Api"); }
+};
+
+// Bug 1: reads must not create row/cell XML when the cell is missing.
+TEST_F(HybridWorksheetApiTest, ReadsDoNotCreateCells) {
+  EXPECT_TRUE(std::holds_alternative<NullType>(hybrid->getCellValue(5, 5)));
+  EXPECT_EQ(hybrid->getCellString(5, 5), "");
+  EXPECT_EQ(hybrid->getCellRawValue(5, 5), "");
+  EXPECT_EQ(hybrid->getCellType(5, 5), CellType::EMPTY);
+  EXPECT_NE(hybrid->getCellFormat(5, 5), nullptr);
+  EXPECT_FALSE(hybrid->findCell(5, 5));
+
+  // ...and the underlying sheet has no cell node at that address.
+  EXPECT_TRUE(rawSheet().findCell(5, 5).empty());
+  EXPECT_FALSE(hybrid->hasFormula(5, 5));
+  EXPECT_EQ(hybrid->formula(5, 5), "");
+
+  // Reading a range of cells must not create any rows either.
+  for (uint32_t r = 1; r <= 10; ++r) {
+    EXPECT_TRUE(rawSheet().findCell(r, 1).empty());
+  }
+}
+
+// Bug 4: getCellType must return BLANK for an existing-but-empty cell node.
+TEST_F(HybridWorksheetApiTest, GetCellTypeBlank) {
+  hybrid->writeBlank(2, 2, std::nullopt);
+  EXPECT_FALSE(rawSheet().findCell(2, 2).empty());
+  EXPECT_EQ(hybrid->getCellType(2, 2), CellType::BLANK);
+}
+
+TEST_F(HybridWorksheetApiTest, GetCellTypeBasicMapping) {
+  hybrid->writeString(1, 1, "text", std::nullopt);
+  hybrid->writeNumber(2, 2, 42.0, std::nullopt);
+  hybrid->writeBoolean(3, 3, true, std::nullopt);
+  hybrid->writeFormula(4, 4, "A1", std::nullopt);
+
+  EXPECT_EQ(hybrid->getCellType(1, 1), CellType::STRING);
+  EXPECT_EQ(hybrid->getCellType(2, 2), CellType::NUMBER);
+  EXPECT_EQ(hybrid->getCellType(3, 3), CellType::BOOLEAN);
+  EXPECT_EQ(hybrid->getCellType(4, 4), CellType::FORMULA);
+  EXPECT_EQ(hybrid->getCellType(9, 9), CellType::EMPTY);
+}
+
+// Bug 4: Integer/Float with a date/time number format must report DATE.
+TEST_F(HybridWorksheetApiTest, GetCellTypeDateCustomNumFmt) {
+  auto fmt = std::make_shared<HybridXlsxCellFormat>();
+  fmt->setNumFormat("yyyy-mm-dd");
+  hybrid->writeNumber(1, 1, 44000.0, fmt);
+  EXPECT_EQ(hybrid->getCellType(1, 1), CellType::DATE);
+
+  auto timeFmt = std::make_shared<HybridXlsxCellFormat>();
+  timeFmt->setNumFormat("hh:mm:ss");
+  hybrid->writeNumber(2, 2, 0.5, timeFmt);
+  EXPECT_EQ(hybrid->getCellType(2, 2), CellType::DATE);
+
+  auto plainFmt = std::make_shared<HybridXlsxCellFormat>();
+  plainFmt->setNumFormat("0.00");
+  hybrid->writeNumber(3, 3, 1.5, plainFmt);
+  EXPECT_EQ(hybrid->getCellType(3, 3), CellType::NUMBER);
+
+  // Quoted literals / bracketed colors must not count as date tokens.
+  auto colorFmt = std::make_shared<HybridXlsxCellFormat>();
+  colorFmt->setNumFormat("[Red]0.00 \"units\"");
+  hybrid->writeNumber(4, 4, 2.5, colorFmt);
+  EXPECT_EQ(hybrid->getCellType(4, 4), CellType::NUMBER);
+}
+
+TEST_F(HybridWorksheetApiTest, GetCellTypeDateBuiltinNumFmt) {
+  // Built-in numFmtId 14 (date) via a directly-crafted cell style.
+  auto& styles = doc->styles();
+  OpenXLSX::XLStyleIndex styleIndex = styles.cellFormats().create(styles.cellFormats()[0]);
+  OpenXLSX::XLCellFormat cellFormat = styles.cellFormats()[styleIndex];
+  cellFormat.setNumberFormatId(14);
+  cellFormat.setApplyNumberFormat(true);
+
+  auto cell = rawSheet().cell(2, 2);
+  cell.value() = 44000.0;
+  cell.setCellFormat(styleIndex);
+  EXPECT_EQ(hybrid->getCellType(2, 2), CellType::DATE);
+
+  // A plain number with the default style is still NUMBER.
+  hybrid->writeNumber(3, 3, 44000.0, std::nullopt);
+  EXPECT_EQ(hybrid->getCellType(3, 3), CellType::NUMBER);
+}
+
+// Bug 3: getCellFormat must populate from the applied style instead of a stub.
+TEST_F(HybridWorksheetApiTest, GetCellFormatPopulatesFromStyle) {
+  auto fmt = std::make_shared<HybridXlsxCellFormat>();
+  fmt->setFontName("Calibri");
+  fmt->setFontSize(14);
+  fmt->setFontColor(0xFF0000); // red
+  fmt->setBold();
+  fmt->setItalic();
+  fmt->setNumFormat("0.00%");
+  fmt->setBgColor(0x0000FF); // blue
+  fmt->setPattern(1);
+  hybrid->writeString(1, 1, "styled", fmt);
+
+  auto read = hybrid->getCellFormat(1, 1);
+  ASSERT_NE(read, nullptr);
+  EXPECT_EQ(read->getFontName(), "Calibri");
+  EXPECT_DOUBLE_EQ(read->getFontSize(), 14.0);
+  EXPECT_DOUBLE_EQ(read->getFontColor(), 0xFF0000);
+  EXPECT_TRUE(read->getIsBold());
+  EXPECT_TRUE(read->getIsItalic());
+  EXPECT_EQ(read->getNumFormat(), "0.00%");
+  EXPECT_DOUBLE_EQ(read->getBgColor(), 0x0000FF);
+}
+
+TEST_F(HybridWorksheetApiTest, GetCellFormatMissingCellIsEmptyFormat) {
+  auto read = hybrid->getCellFormat(7, 7);
+  ASSERT_NE(read, nullptr);
+  EXPECT_EQ(read->getFontName(), "");
+  EXPECT_DOUBLE_EQ(read->getFontSize(), 0.0);
+  EXPECT_FALSE(read->getIsBold());
+  EXPECT_FALSE(read->getIsItalic());
+  EXPECT_EQ(read->getNumFormat(), "");
+  EXPECT_TRUE(rawSheet().findCell(7, 7).empty());
+}
+
+// Bug 7: getLastRow/getLastColumn report 0 on an empty sheet.
+TEST_F(HybridWorksheetApiTest, EmptySheetLastRowAndColumnAreZero) {
+  EXPECT_DOUBLE_EQ(hybrid->getLastRow(), 0.0);
+  EXPECT_DOUBLE_EQ(hybrid->getLastColumn(), 0.0);
+
+  hybrid->writeString(3, 4, "data", std::nullopt);
+  EXPECT_DOUBLE_EQ(hybrid->getLastRow(), 3.0);
+  EXPECT_DOUBLE_EQ(hybrid->getLastColumn(), 4.0);
+}
+
+// Bug 2: array formulas are unsupported by OpenXLSX and must throw UNSUPPORTED.
+TEST_F(HybridWorksheetApiTest, WriteArrayFormulaThrowsUnsupported) {
+  try {
+    hybrid->writeArrayFormula(1, 1, 2, 2, "SUM(A1:B2)", std::nullopt);
+    FAIL() << "writeArrayFormula should have thrown";
+  } catch (const XlsxError& e) {
+    EXPECT_EQ(e.code(), xlsx_error::UNSUPPORTED);
+    EXPECT_NE(std::string(e.what()).find("Array formula"), std::string::npos);
+  }
+  // And nothing was written.
+  EXPECT_TRUE(rawSheet().findCell(1, 1).empty());
+}
+
+// Bug 6: deleteColumn must not materialize cells while shifting.
+TEST_F(HybridWorksheetApiTest, DeleteColumnDoesNotMaterializeCells) {
+  hybrid->writeString(1, 3, "B", std::nullopt);
+  size_t rowsBefore = rawSheet().rowCount();
+
+  EXPECT_TRUE(hybrid->deleteColumn(1));
+
+  // Empty source at (1,2) must not create the destination cell (1,1).
+  EXPECT_TRUE(rawSheet().findCell(1, 1).empty());
+  // Non-empty source shifted left.
+  EXPECT_EQ(hybrid->getCellString(1, 2), "B");
+  // Rows that never existed must stay non-materialized.
+  EXPECT_EQ(rawSheet().rowCount(), rowsBefore);
+  EXPECT_TRUE(rawSheet().findCell(5, 1).empty());
+  EXPECT_TRUE(rawSheet().findCell(5, 2).empty());
+}
+
+TEST_F(HybridWorksheetApiTest, DeleteColumnClearsExistingDestination) {
+  hybrid->writeString(1, 1, "A", std::nullopt);
+  hybrid->writeString(1, 3, "B", std::nullopt);
+
+  EXPECT_TRUE(hybrid->deleteColumn(1));
+
+  // (1,1) existed, so it gets cleared; (1,2) receives the value from (1,3).
+  EXPECT_TRUE(std::holds_alternative<NullType>(hybrid->getCellValue(1, 1)));
+  EXPECT_EQ(hybrid->getCellString(1, 2), "B");
+}
+
+// Bug 5: exceptions must surface as structured XlsxErrors.
+TEST_F(HybridWorksheetApiTest, ReadErrorsAreWrappedAsXlsxError) {
+  try {
+    hybrid->getCellValue(0, 0);
+    FAIL() << "getCellValue(0, 0) should have thrown";
+  } catch (const XlsxError& e) {
+    EXPECT_EQ(e.code(), xlsx_error::INVALID_ARGUMENT);
+  }
+}
+
+TEST_F(HybridWorksheetApiTest, WriteErrorsAreWrappedAsXlsxError) {
+  try {
+    hybrid->writeString(0, 1, "x", std::nullopt);
+    FAIL() << "writeString(0, 1) should have thrown";
+  } catch (const XlsxError& e) {
+    EXPECT_EQ(e.code(), xlsx_error::INVALID_ARGUMENT);
+  }
+}
+
+// Regression: a custom time-only format ("h:mm") must read back as DATE, not
+// NUMBER. The built-in ids 18-21 were covered by the numFmtId range check, but
+// custom codes were only inspected for y/d/hh/ss.
+TEST_F(HybridXlsxWorksheetTest, CustomTimeOnlyFormatIsDate) {
+  doc->workbook().addWorksheet("TimeSheet");
+  auto ws = std::make_shared<HybridXlsxWorksheet>(*doc, doc->workbook().worksheet("TimeSheet"), 1);
+  auto fmt = std::make_shared<HybridXlsxCellFormat>();
+  fmt->setNumFormat("h:mm");
+
+  ws->writeDatetime(1, 1, 0.5, fmt);
+  EXPECT_EQ(ws->getCellType(1, 1), CellType::DATE);
 }

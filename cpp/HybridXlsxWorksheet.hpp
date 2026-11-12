@@ -13,7 +13,9 @@ namespace margelo::nitro::xlsx {
 
 class HybridXlsxWorksheet : public HybridXlsxWorksheetSpec {
 public:
-  HybridXlsxWorksheet(OpenXLSX::XLDocument& doc, OpenXLSX::XLWorksheet worksheet);
+  // `documentGeneration` must come from the owning workbook so cell format
+  // caching stays scoped to one document (see XlsxCellStyle::applyToDocument).
+  HybridXlsxWorksheet(OpenXLSX::XLDocument& doc, OpenXLSX::XLWorksheet worksheet, uint64_t documentGeneration = 0);
   ~HybridXlsxWorksheet() override;
 
   void writeString(double row, double col, const std::string& value, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format) override;
@@ -125,6 +127,7 @@ public:
 private:
   OpenXLSX::XLDocument& _doc;
   OpenXLSX::XLWorksheet _worksheet;
+  uint64_t _documentGeneration;
 
   void applyFormat(OpenXLSX::XLCell& cell, const std::optional<std::shared_ptr<HybridXlsxCellFormatSpec>>& format);
   std::string cellAddress(double row, double col);

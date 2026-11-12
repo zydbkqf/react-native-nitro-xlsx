@@ -84,9 +84,12 @@ void HybridXlsxConditionalFormat::setRuleDxfId(double index, double dxfId) {
 
 std::string HybridXlsxConditionalFormat::getRuleFormula(double index, double formulaIndex) {
   return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
+    // Validate the rule index first so out-of-range throws INDEX_OUT_OF_RANGE
+    // like every other getter (and like setRuleFormula).
+    auto rule = ruleAt(index);
     // OpenXLSX only supports the primary <formula> node
     if (formulaIndex != 0) return std::string();
-    return ruleAt(index).formula();
+    return rule.formula();
   });
 }
 

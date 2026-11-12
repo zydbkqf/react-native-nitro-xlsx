@@ -8,6 +8,20 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <memory>
+
+#include "HybridNitroXlsx.hpp"
+#include "HybridXlsxWorkbook.hpp"
+#include "XlsxError.hpp"
+
+// Test double for cpp/XlsxCacheDir (whose platform impl is not part of this
+// build): HybridXlsxWorkbook only needs a writable temp directory.
+namespace margelo::nitro::xlsx {
+std::string getCacheDir() {
+  return "/tmp";
+}
+} // namespace margelo::nitro::xlsx
 
 namespace fs {
 
@@ -469,4 +483,175 @@ TEST_F(HybridXlsxWorkbookTest, CloneSheet) {
   EXPECT_DOUBLE_EQ(copy.cell(2, 1).value().get<double>(), 3.14);
 
   doc.close();
+}
+
+// ========== HybridNitroXlsx / HybridXlsxWorkbook API regression tests ==========
+
+using margelo::nitro::AnyMap;
+using margelo::nitro::xlsx::HybridNitroXlsx;
+using margelo::nitro::xlsx::XlsxError;
+namespace xlsx_error = margelo::nitro::xlsx::xlsx_error;
+
+namespace {
+
+std::shared_ptr<AnyMap> makeRow(const std::string& name, double age) {
+  auto row = AnyMap::make();
+  row->setString("Name", name);
+  row->setDouble("Age", age);
+  return row;
+}
+
+} // namespace
+
+// Bug 8b: fromJSON must produce exactly one worksheet per key - no leftover
+// default "Sheet1".
+TEST(HybridWorkbookApiTest, FromJSONOneSheetPerKey) {
+  HybridNitroXlsx xlsx;
+  std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> data;
+  data["Data"] = { makeRow("Alice", 30.0) };
+
+  auto wb = xlsx.fromJSON(data);
+  ASSERT_NE(wb, nullptr);
+  EXPECT_DOUBLE_EQ(wb->getWorksheetCount(), 1.0);
+
+  auto sheet = wb->getWorksheetByName("Data");
+  ASSERT_NE(sheet, nullptr);
+  EXPECT_EQ(sheet->getName(), "Data");
+  // Record keys are sorted, so the header row is "Age", "Name".
+  EXPECT_DOUBLE_EQ(std::get<double>(sheet->getCellValue(2, 1)), 30.0);
+  EXPECT_EQ(sheet->getCellString(2, 2), "Alice");
+
+  // The OpenXLSX default sheet must have been deleted.
+  try {
+    wb->getWorksheetByName("Sheet1");
+    FAIL() << "default Sheet1 should not exist";
+  } catch (const XlsxError& e) {
+    EXPECT_EQ(e.code(), xlsx_error::SHEET_NOT_FOUND);
+  }
+
+  auto exported = wb->toJSON();
+  EXPECT_EQ(exported.size(), 1u);
+  ASSERT_EQ(exported.count("Data"), 1u);
+  ASSERT_EQ(exported["Data"].size(), 1u);
+  EXPECT_EQ(exported["Data"][0]->getString("Name"), "Alice");
+}
+
+TEST(HybridWorkbookApiTest, FromJSONMultipleKeys) {
+  HybridNitroXlsx xlsx;
+  std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> data;
+  data["Alpha"] = { makeRow("A", 1.0) };
+  data["Beta"] = { makeRow("B", 2.0) };
+
+  auto wb = xlsx.fromJSON(data);
+  EXPECT_DOUBLE_EQ(wb->getWorksheetCount(), 2.0);
+  EXPECT_EQ(wb->getWorksheetByName("Alpha")->getName(), "Alpha");
+  EXPECT_EQ(wb->getWorksheetByName("Beta")->getName(), "Beta");
+}
+
+TEST(HybridWorkbookApiTest, FromJSONKeyClaimingDefaultSheetName) {
+  HybridNitroXlsx xlsx;
+  std::unordered_map<std::string, std::vector<std::shared_ptr<AnyMap>>> data;
+  data["Sheet1"] = { makeRow("Keep", 1.0) };
+
+  auto wb = xlsx.fromJSON(data);
+  EXPECT_DOUBLE_EQ(wb->getWorksheetCount(), 1.0);
+  EXPECT_EQ(wb->getWorksheetByName("Sheet1")->getName(), "Sheet1");
+}
+
+// Bug 8a: fromJSON({}) must leave a usable workbook behind.
+TEST(HybridWorkbookApiTest, FromJSONEmptyInputUsableWorkbook) {
+  HybridNitroXlsx xlsx;
+  auto wb = xlsx.fromJSON({});
+  ASSERT_NE(wb, nullptr);
+
+  EXPECT_GE(wb->getWorksheetCount(), 1.0);
+  EXPECT_NE(wb->getWorksheet(0), nullptr);
+
+  // toJSON works and reflects the empty data set.
+  EXPECT_TRUE(wb->toJSON().empty());
+
+  // getBuffer resolves instead of rejecting on an unopened document.
+  auto promise = wb->getBuffer();
+  ASSERT_TRUE(promise->isResolved());
+  EXPECT_GT(promise->getResult()->size(), 0u);
+}
+
+// Bug 8c: getWorksheetCount/toJSON/getBuffer work on a never-opened workbook.
+TEST(HybridWorkbookApiTest, FreshWorkbookIsUsable) {
+  HybridNitroXlsx xlsx;
+  auto wb = xlsx.createWorkbook();
+
+  EXPECT_GE(wb->getWorksheetCount(), 1.0);
+
+  // An empty workbook exports as an empty map without throwing.
+  EXPECT_NO_THROW(wb->toJSON());
+  EXPECT_TRUE(wb->toJSON().empty());
+}
+
+// Bug 9: openWorkbookFromBuffer rejects invalid data as XlsxError (and does not
+// leak its temp file).
+TEST(HybridWorkbookApiTest, OpenFromBufferInvalidDataThrowsXlsxError) {
+  HybridNitroXlsx xlsx;
+  std::vector<uint8_t> garbage = { 0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE };
+  auto buffer = margelo::nitro::ArrayBuffer::copy(garbage.data(), garbage.size());
+  EXPECT_THROW(xlsx.openWorkbookFromBuffer(buffer), XlsxError);
+}
+
+// Round-trip: createWorkbook -> data -> getBuffer -> openWorkbookFromBuffer.
+TEST(HybridWorkbookApiTest, BufferRoundTrip) {
+  HybridNitroXlsx xlsx;
+  {
+    auto wb = xlsx.createWorkbook();
+    auto sheet = wb->addWorksheet("Round");
+    sheet->writeString(1, 1, "hello", std::nullopt);
+    auto promise = wb->getBuffer();
+    ASSERT_TRUE(promise->isResolved());
+    auto buffer = promise->getResult();
+
+    auto reopened = xlsx.openWorkbookFromBuffer(buffer);
+    ASSERT_NE(reopened, nullptr);
+    EXPECT_EQ(reopened->getWorksheetByName("Round")->getCellString(1, 1), "hello");
+  }
+}
+
+// Reopening a workbook in place bumps documentGeneration, so a format whose
+// style index was cached against the old document state is rebuilt instead of
+// silently pointing at an unrelated style in the new one.
+TEST(HybridWorkbookApiTest, ReopenInvalidatesStyleCache) {
+  // Build a source file with one sheet "A".
+  std::string path = fs::temp_path();
+  {
+    HybridNitroXlsx xlsx;
+    auto wb = xlsx.createWorkbook();
+    auto sh = wb->addWorksheet("A");
+    sh->writeString(1, 1, "hello", std::nullopt);
+    auto promise = wb->getBuffer();
+    ASSERT_TRUE(promise->isResolved());
+    auto buffer = promise->getResult();
+    std::ofstream out(path, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out.write(reinterpret_cast<const char*>(buffer->data()),
+              static_cast<std::streamsize>(buffer->size()));
+  }
+
+  HybridNitroXlsx xlsx;
+  auto wb = std::dynamic_pointer_cast<margelo::nitro::xlsx::HybridXlsxWorkbook>(xlsx.createWorkbook());
+  ASSERT_NE(wb, nullptr);
+  wb->openFromFile(path); // generation 1
+  auto sh = wb->getWorksheetByName("A");
+  ASSERT_NE(sh, nullptr);
+  auto fmt = wb->addCellFormat();
+  fmt->setFontName("Comic Sans MS");
+  sh->writeString(1, 1, "x", fmt); // caches the style index at generation 1
+
+  wb->openFromFile(path); // same XLDocument object, generation 2
+  auto sh2 = wb->getWorksheetByName("A");
+  ASSERT_NE(sh2, nullptr);
+  sh2->writeString(2, 2, "y", fmt); // must rebuild the style in the new state
+
+  auto read = sh2->getCellFormat(2, 2);
+  ASSERT_NE(read, nullptr);
+  EXPECT_EQ(read->getFontName(), "Comic Sans MS");
+
+  fs::remove_file(path);
 }

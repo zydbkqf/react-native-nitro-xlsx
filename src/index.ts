@@ -265,7 +265,9 @@ export const Colors = {
   FUCHSIA: 0xFF00FF,
 } as const
 
-// Built-in number format indices
+// Built-in number format indices (ECMA-376 §18.8.30 numFmtId values).
+// Note: ids 5-8 are locale-dependent currency variants; 14-22 are locale-dependent
+// date/time formats. There is no second built-in scientific format (11 is the only one).
 export const NumFormat = {
   GENERAL: 0,
   NUMBER: 1,
@@ -279,18 +281,16 @@ export const NumFormat = {
   PERCENT: 9,
   PERCENT_2: 10,
   SCIENTIFIC: 11,
-  SCIENTIFIC_2: 12,
-  FRACTION_1: 13,
-  FRACTION_2: 14,
-  DATE_1: 15,
-  DATE_2: 16,
-  DATE_3: 17,
-  DATE_4: 18,
-  DATE_5: 19,
-  TIME_1: 20,
-  TIME_2: 21,
-  TIME_3: 22,
-  TIME_4: 23,
+  FRACTION_1: 12,
+  FRACTION_2: 13,
+  DATE_1: 14,
+  DATE_2: 15,
+  DATE_3: 16,
+  DATE_4: 17,
+  TIME_1: 18,
+  TIME_2: 19,
+  TIME_3: 20,
+  TIME_4: 21,
   DATETIME: 22,
   TEXT: 49,
 } as const

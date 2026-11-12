@@ -19,7 +19,11 @@ std::shared_ptr<HybridXlsxConditionalFormatSpec> HybridXlsxConditionalFormats::c
   return withXlsxError(xlsx_error::XLSX_ERROR, [&] {
     size_t index = _formats.create();
     OpenXLSX::XLConditionalFormat format = _formats.conditionalFormatByIndex(index);
-    format.setSqref(sqref);
+    // setSqref() returns false when it cannot apply the value (and treats an empty
+    // attribute value as a no-op), so a blank sqref is rejected explicitly too.
+    if (sqref.empty() || !format.setSqref(sqref)) {
+      throw XlsxError(xlsx_error::INVALID_ARGUMENT, "Invalid sqref: " + sqref);
+    }
     auto hybrid = std::make_shared<HybridXlsxConditionalFormat>(format);
     _created.push_back(hybrid);
     return std::static_pointer_cast<HybridXlsxConditionalFormatSpec>(hybrid);

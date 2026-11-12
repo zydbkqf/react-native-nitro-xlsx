@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HybridXlsxCellFormatSpec.hpp"
+#include "XlsxCellStyle.hpp"
 #include <OpenXLSX/XLDocument.hpp>
 #include <OpenXLSX/XLSheet.hpp>
 #include <OpenXLSX/XLStyles.hpp>
@@ -14,7 +15,11 @@ public:
   HybridXlsxCellFormat();
   ~HybridXlsxCellFormat() override;
 
-  OpenXLSX::XLStyleIndex applyToDocument(OpenXLSX::XLStyles& styles);
+  // `documentGeneration` identifies the XLDocument that owns `styles` (see
+  // HybridXlsxWorkbook::documentGeneration()). It must be passed on every call
+  // so the style cache can never be reused by a different document that happens
+  // to reuse the same heap address.
+  OpenXLSX::XLStyleIndex applyToDocument(OpenXLSX::XLStyles& styles, uint64_t documentGeneration);
   void applyToCell(OpenXLSX::XLCell& cell, OpenXLSX::XLStyleIndex styleIndex);
 
   void setFontName(const std::string& name) override;
@@ -68,45 +73,8 @@ public:
   double getBgColor() override;
 
 private:
-  std::optional<OpenXLSX::XLStyleIndex> _styleIndex;
-  std::string _fontName;
-  double _fontSize = 0;
-  double _fontColor = 0;
-  double _fontScript = 0;
-  bool _bold = false;
-  bool _italic = false;
-  double _underline = 0;
-  bool _strikeout = false;
-  
-  double _align = 0;
-  double _verticalAlign = 0;
-  bool _textWrap = false;
-  double _rotation = 0;
-  double _indent = 0;
-  bool _shrink = false;
-  
-  std::string _numFormat;
-  double _numFormatIndex = 0;
-  
-  double _bgColor = 0;
-  double _fgColor = 0;
-  double _pattern = 0;
-  
-  double _border = 0;
-  double _borderColor = 0;
-  double _bottom = 0;
-  double _top = 0;
-  double _left = 0;
-  double _right = 0;
-  double _bottomColor = 0;
-  double _topColor = 0;
-  double _leftColor = 0;
-  double _rightColor = 0;
-  double _diagonal = 0;
-  double _diagonalColor = 0;
-  
-  bool _locked = false;
-  bool _hyperlink = false;
+  // Style state and styles.xml materialization, shared with the unit tests.
+  XlsxCellStyle _fmt;
 };
 
 }

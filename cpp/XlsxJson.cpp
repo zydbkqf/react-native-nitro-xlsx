@@ -1,5 +1,6 @@
 #include "XlsxJson.hpp"
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -20,8 +21,22 @@ std::string keyFromCellValue(OpenXLSX::XLWorksheet& ws, uint32_t row, uint16_t c
       return cell.value().get<std::string>();
     case OpenXLSX::XLValueType::Integer:
       return std::to_string(static_cast<long long>(cell.value().get<int64_t>()));
-    case OpenXLSX::XLValueType::Float:
-      return std::to_string(static_cast<int>(cell.value().get<double>()));
+    case OpenXLSX::XLValueType::Float: {
+      double d = cell.value().get<double>();
+      // Integral values in int64 range render exactly like the Integer branch.
+      // Bounds are the int64 range as doubles: [-2^63, 2^63).
+      constexpr double kInt64Min = -9223372036854775808.0;
+      constexpr double kInt64MaxExclusive = 9223372036854775808.0;
+      if (std::isfinite(d) && d == std::trunc(d) && d >= kInt64Min && d < kInt64MaxExclusive) {
+        return std::to_string(static_cast<long long>(d));
+      }
+      // Shortest representation that round-trips exactly: no truncation to int,
+      // so headers 3.5 and 3.9 stay distinct ("3.5" / "3.9", not both "3").
+      char buf[40];
+      auto [end, ec] = std::to_chars(buf, buf + sizeof(buf), d);
+      if (ec == std::errc()) return std::string(buf, end);
+      return std::to_string(d);
+    }
     default:
       return "col" + std::to_string(col);
   }
@@ -32,10 +47,14 @@ void recordFromRow(OpenXLSX::XLWorksheet& ws,
                    const std::vector<std::string>& keys,
                    uint16_t lastCol,
                    std::shared_ptr<AnyMap> record) {
-  uint16_t keyCount = std::min(static_cast<uint16_t>(keys.size()), lastCol);
-  for (uint16_t c = 0; c < keyCount; ++c) {
+  for (size_t c = 0; c < keys.size(); ++c) {
     const std::string& key = keys[c];
-    auto cell = ws.findCell(row, c + 1);
+    if (c >= static_cast<size_t>(lastCol)) {
+      // Column beyond the sheet's width: emit an explicit null instead of dropping the key.
+      record->setNull(key);
+      continue;
+    }
+    auto cell = ws.findCell(row, static_cast<uint16_t>(c + 1));
     if (cell.empty()) {
       record->setNull(key);
       continue;
@@ -128,11 +147,13 @@ std::vector<std::shared_ptr<AnyMap>> worksheetToRecords(
   }
   if (resolvedKeys.empty()) return result;
 
-  uint16_t keyCount = std::min(static_cast<uint16_t>(resolvedKeys.size()), lastCol);
+  // Keys beyond lastCol can never hold data, so the has-data scan only needs to
+  // cover the sheet's columns; recordFromRow still emits every key (null-filled).
+  size_t scanCols = std::min(resolvedKeys.size(), static_cast<size_t>(lastCol));
   for (uint32_t r = dataStartRow; r <= lastRow; ++r) {
     bool hasData = false;
-    for (uint16_t c = 1; c <= keyCount; ++c) {
-      if (!isCellEmpty(worksheet, r, c)) {
+    for (size_t c = 1; c <= scanCols; ++c) {
+      if (!isCellEmpty(worksheet, r, static_cast<uint16_t>(c))) {
         hasData = true;
         break;
       }
