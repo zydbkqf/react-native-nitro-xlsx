@@ -1,0 +1,12 @@
+#ifndef OPENXLSX_EXPORTS_HPP
+#define OPENXLSX_EXPORTS_HPP
+
+#ifndef OPENXLSX_EXPORT
+#define OPENXLSX_EXPORT
+#endif
+
+#ifndef OPENXLSX_HIDDEN
+#define OPENXLSX_HIDDEN
+#endif
+
+#endif
